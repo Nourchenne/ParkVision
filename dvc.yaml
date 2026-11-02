@@ -1,0 +1,8 @@
+stages:
+  prepare_split:
+    cmd: python src/data/prepare_split.py
+    deps:
+    - data/raw
+    - src/data/prepare_split.py
+    outs:
+    - data/processed/split_manifest.csv

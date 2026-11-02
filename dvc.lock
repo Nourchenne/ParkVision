@@ -1,0 +1,19 @@
+schema: '2.0'
+stages:
+  prepare_split:
+    cmd: python src/data/prepare_split.py
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: 7ebd4f8ce4ef27bdc80d05e92882a012.dir
+      size: 1817499248
+      nfiles: 24835
+    - path: src/data/prepare_split.py
+      hash: md5
+      md5: ef98fd3938d27706bab0beeb37b37c6d
+      size: 1972
+    outs:
+    - path: data/processed/split_manifest.csv
+      hash: md5
+      md5: e25125922f875c5694bf42103c4d1e46
+      size: 1260541
