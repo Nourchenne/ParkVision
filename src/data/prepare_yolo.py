@@ -42,7 +42,7 @@ OUTPUT.mkdir(parents=True, exist_ok=True)
 
 for split, paths in lists.items():
     content = "\n".join(sorted(paths)) + "\n"
-    (OUTPUT / f"{split}.txt").write_text(content, encoding="utf-8")
+    (OUTPUT / f"{split}.txt").write_text(content, encoding="utf-8", newline="\n")
     print(f"{split} : {len(paths)} images")
 
 yaml_content = """train: train.txt
@@ -52,6 +52,6 @@ test: test.txt
 nc: 2
 names: ['space-empty', 'space-occupied']
 """
-(OUTPUT / "data.yaml").write_text(yaml_content, encoding="utf-8")
+(OUTPUT / "data.yaml").write_text(yaml_content, encoding="utf-8", newline="\n")
 
 print("Fichiers YOLO créés dans data/processed/yolo")

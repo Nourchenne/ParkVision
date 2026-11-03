@@ -10,8 +10,8 @@ stages:
       nfiles: 24835
     - path: src/data/prepare_split.py
       hash: md5
-      md5: ef98fd3938d27706bab0beeb37b37c6d
-      size: 1972
+      md5: a3ba94e66443f906d98183513e1b9820
+      size: 1912
     outs:
     - path: data/processed/split_manifest.csv
       hash: md5
@@ -31,11 +31,11 @@ stages:
       nfiles: 24835
     - path: src/data/prepare_yolo.py
       hash: md5
-      md5: d5bc60eac001040b9e03f40cbe42cef9
-      size: 2018
+      md5: 3c67214542d69dc5aa40604788071232
+      size: 1990
     outs:
     - path: data/processed/yolo
       hash: md5
-      md5: b0f82979c049e38c5e006cb615533d0b.dir
-      size: 1091665
+      md5: 8752811d368d0e721e9610bc63cc2957.dir
+      size: 1079517
       nfiles: 4
