@@ -17,3 +17,25 @@ stages:
       hash: md5
       md5: e25125922f875c5694bf42103c4d1e46
       size: 1260541
+  prepare_yolo:
+    cmd: python src/data/prepare_yolo.py
+    deps:
+    - path: data/processed/split_manifest.csv
+      hash: md5
+      md5: e25125922f875c5694bf42103c4d1e46
+      size: 1260541
+    - path: data/raw
+      hash: md5
+      md5: 7ebd4f8ce4ef27bdc80d05e92882a012.dir
+      size: 1817499248
+      nfiles: 24835
+    - path: src/data/prepare_yolo.py
+      hash: md5
+      md5: d5bc60eac001040b9e03f40cbe42cef9
+      size: 2018
+    outs:
+    - path: data/processed/yolo
+      hash: md5
+      md5: b0f82979c049e38c5e006cb615533d0b.dir
+      size: 1091665
+      nfiles: 4

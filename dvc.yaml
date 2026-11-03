@@ -6,3 +6,11 @@ stages:
     - src/data/prepare_split.py
     outs:
     - data/processed/split_manifest.csv
+  prepare_yolo:
+    cmd: python src/data/prepare_yolo.py
+    deps:
+    - data/processed/split_manifest.csv
+    - data/raw
+    - src/data/prepare_yolo.py
+    outs:
+    - data/processed/yolo
