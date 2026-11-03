@@ -1,1 +1,8 @@
 .venv/
+
+# Sorties locales des experiences ParkVision
+/runs/
+/tracking/
+/exports/
+/yolov8*.pt
+__pycache__/
