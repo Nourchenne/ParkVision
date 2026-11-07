@@ -153,7 +153,8 @@ def main():
         with mlflow.start_run(run_name=run_name) as run:
             run_id = run.info.run_id
             mlflow.set_tags({"type": "smoke" if args.smoke else "training",
-                             "test_evaluated": "false", "member": "Nourchenne"})
+                             "test_evaluated": "false",
+                             "member": os.environ.get("PARKVISION_MEMBER", "Nourchenne")})
             commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
             mlflow.set_tag("git_commit", commit)
             mlflow.set_tag("manifest_sha256", fingerprint(manifest))
