@@ -145,10 +145,14 @@ def choose_examples(per_image_events, per_image_gap, per_type=2, largest=2):
         ranked = sorted(((sum(1 for e in events if e["type"] == kind), image)
                          for image, events in per_image_events.items()),
                         key=lambda item: (-item[0], item[1]))
-        for count, image in ranked[:per_type]:
-            if count and image not in seen:
+        added = 0
+        for count, image in ranked:
+            if added == per_type or not count:
+                break
+            if image not in seen:
                 chosen.append((kind, image))
                 seen.add(image)
+                added += 1
     for gap, image in sorted(((g, i) for i, g in per_image_gap.items()),
                              key=lambda item: (-item[0], item[1]))[:largest]:
         if gap and image not in seen:

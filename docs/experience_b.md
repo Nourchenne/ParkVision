@@ -57,9 +57,10 @@ téléchargé est importé sur le serveur MLflow du groupe avec
 ## État
 
 - [x] Configuration B, tag membre configurable, outils d'analyse et tests.
-- [ ] Essai court sur Colab et vérification des poids sur Drive.
-- [ ] Entraînement complet, ZIP MLflow, import par Nourchenne.
-- [ ] Analyse du lot valid et rapports `resultats.md` / `erreurs.md`.
+- [x] Essai court sur Colab et vérification des poids sur Drive.
+- [x] Entraînement complet (50 époques, 2,574 h) et ZIP MLflow exporté.
+- [ ] Import du ZIP par Nourchenne sur le serveur MLflow du groupe.
+- [x] Analyse du lot valid et rapports dans `reports/experience_b/` (`resultats.md`, `erreurs.md`).
 
 Limites : `train.py` n'offre pas de reprise après coupure ; une session Colab
 interrompue obligerait à reprendre depuis `last.pt` avec un code à ajouter.
