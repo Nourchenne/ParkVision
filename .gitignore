@@ -6,3 +6,7 @@
 /exports/
 /yolov8*.pt
 __pycache__/
+mlflow_exports/
+mlruns/
+/mlartifacts/
+/mlflow.db*
