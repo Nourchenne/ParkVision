@@ -1,0 +1,22 @@
+{
+  "images_evaluees": 2500,
+  "mae_libres": 0.0784,
+  "mae_occupees": 0.062,
+  "total_libres_annotees": 73367,
+  "total_libres_predites": 73527,
+  "total_occupees_annotees": 65669,
+  "total_occupees_predites": 65688,
+  "erreurs_par_type": {
+    "oubli": 40,
+    "fausse_detection": 196,
+    "double_detection": 23,
+    "confusion": 88
+  },
+  "seuil_confiance": 0.25,
+  "seuil_nms_iou": 0.7,
+  "seuil_appariement_iou": 0.5,
+  "imgsz": 640,
+  "poids": "/content/drive/MyDrive/ParkVision_B/runs_detect/B_yolov8s_baseline_faf38527/weights/best.pt",
+  "poids_sha256": "d1f0e97c360394871f2afe92c3bfea6e5192fc82e5d236c968bfcc4fe95657e9",
+  "commit_git": "d438560e179d6691079825ee8250ef6445fb9022"
+}
