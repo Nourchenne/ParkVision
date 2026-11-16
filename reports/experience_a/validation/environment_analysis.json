@@ -1,0 +1,10 @@
+{
+  "python": "3.10.11",
+  "pytorch": "2.14.1+cpu",
+  "ultralytics": "8.4.201",
+  "device": "cpu",
+  "batch": 4,
+  "split": "valid",
+  "analysis_git_commit": "3073b6b0ac74c2f2d04e32d80de20a0a67f1f5e5",
+  "weights_sha256": "d6953c1ffdb87854db5b705b01a3542d7fef92d8bc1ecff48d67282f2748916d"
+}
