@@ -1,0 +1,29 @@
+name: Python CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install lightweight dependencies
+        run: python -m pip install PyYAML==6.0.3 ruff==0.17.3
+      - name: Check Python syntax
+        run: python -m compileall -q src tests
+      - name: Lint quality gate and tests
+        run: ruff check src/analysis/validate_model.py tests/test_validate_model.py
+      - name: Validate quality configuration schema
+        run: python src/analysis/validate_model.py --check-config --config configs/model_quality.yaml
+      - name: Run GPU-free unit tests and synthetic quality-gate tests
+        run: |
+          python -m unittest discover -s tests -p 'test_validate_model.py' -v
+          python -m unittest discover -s tests -p 'test_error_analysis.py' -v
+          python -m unittest discover -s tests -p 'test_training_tools.py' -v -k DataChecks
+      - name: Check whitespace
+        run: git diff --check HEAD^
