@@ -1,0 +1,22 @@
+{
+  "images_evaluees": 2500,
+  "mae_libres": 0.492,
+  "mae_occupees": 0.3176,
+  "total_libres_annotees": 73367,
+  "total_libres_predites": 74577,
+  "total_occupees_annotees": 65669,
+  "total_occupees_predites": 65359,
+  "erreurs_par_type": {
+    "oubli": 39,
+    "fausse_detection": 823,
+    "double_detection": 116,
+    "confusion": 592
+  },
+  "seuil_confiance": 0.25,
+  "seuil_nms_iou": 0.7,
+  "seuil_appariement_iou": 0.5,
+  "imgsz": 640,
+  "poids": "exports/model_a/best.pt",
+  "poids_sha256": "d6953c1ffdb87854db5b705b01a3542d7fef92d8bc1ecff48d67282f2748916d",
+  "commit_git": "3073b6b0ac74c2f2d04e32d80de20a0a67f1f5e5"
+}
