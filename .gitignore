@@ -4,7 +4,7 @@
 /runs/
 /tracking/
 /exports/
-/yolov8*.pt
+/*.pt
 __pycache__/
 mlflow_exports/
 mlruns/
