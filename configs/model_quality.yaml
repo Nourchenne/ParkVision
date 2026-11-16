@@ -1,0 +1,6 @@
+# Provisional engineering thresholds.
+quality_gate:
+  min_map50_95: 0.85
+  max_mae_empty: 0.35
+  max_mae_occupied: 0.25
+  min_exact_count_accuracy: 0.74

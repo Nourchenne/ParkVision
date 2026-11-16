@@ -10,3 +10,4 @@ mlflow_exports/
 mlruns/
 /mlartifacts/
 /mlflow.db*
+reports/experience_c/validation/quality_gate_local.json
