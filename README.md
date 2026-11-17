@@ -6,6 +6,10 @@ parking count. The repository contains YOLO training and validation tools,
 day-separated PKLot data preparation with DVC, MLflow run exports, and a
 lightweight model-quality gate.
 
+Registry packaging, policy-based champion selection, and rollback are covered
+in [the Phase 2 workflow](docs/mlops_phase2.md). Automatic promotion is disabled
+by default and requires explicit policy values and a shared writer lock.
+
 The recorded Experiment C results are **validation** results. The held-out test
 split is reserved for final evaluation after model selection.
 

@@ -1,0 +1,14 @@
+# No remote alias changes until a project owner fills in and enables this policy.
+promotion:
+  enabled: false
+  lock_file: null  # The same shared path must be used by every registry writer.
+  min_exact_gain: null
+  max_map_drop: null
+  max_mae_empty_increase: null
+  max_mae_occupied_increase: null
+  bootstrap: manual  # Alternative: allow_eligible_candidate, explicitly approved.
+  latency:
+    mode: require_if_recorded
+    max_relative_increase: null
+    min_samples: null
+    min_warmup_runs: null
