@@ -85,3 +85,27 @@ The MLflow transfer test in `test_training_tools.py` needs MLflow and is not
 part of lightweight CI. [GitHub Actions](.github/workflows/ci.yml) runs on
 pull requests targeting `main` and pushes to `main`, using synthetic fixtures
 without a GPU, dataset, checkpoint, or tracking server.
+
+
+## Jalon de mi-parcours
+
+Les livrables de mi-parcours sont dans `docs/mi_parcours/` : rapport (PDF), pitch (PDF et PPTX) et sources LaTeX du rapport.
+
+### Reproduire les résultats
+
+```powershell
+git clone https://github.com/Nourchenne/ParkVision.git
+cd ParkVision
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-training.txt "dvc[s3]"
+dvc remote modify dagshub --local access_key_id VOTRE_JETON_DAGSHUB
+dvc remote modify dagshub --local secret_access_key VOTRE_JETON_DAGSHUB
+dvc pull -r dagshub
+dvc repro
+python src/models/train.py --config configs/train_b.yaml --check
+```
+
+Le jeton DagsHub reste personnel : il est écrit dans `.dvc/config.local`, qui n'est pas suivi par Git.
+
+Suivi des expériences : https://dagshub.com/Nourchenne/ParkVision.mlflow (runs `A_yolov8n_baseline`, `B_yolov8s_baseline`, `C_yolo26n`).
