@@ -1,0 +1,8 @@
+# Fixed validation contract for comparing the existing A/B/C experiments.
+split: valid
+manifest_sha256: b51c7072a9276eff8c69d9023849979efaecf1aadd458f31c2e81651ee76630a
+images: 2500
+confidence: 0.25
+nms_iou: 0.7
+matching_iou: 0.5
+imgsz: 640

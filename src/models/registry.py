@@ -14,7 +14,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from src.analysis.validate_model import file_hash, read_json, validate
+from src.analysis.validation_contract import verify_contract
 from src.models.registry_lock import registry_lock
 from src.models.registry_policy import compare, load_policy
 
@@ -94,7 +95,8 @@ def read_latency(path, protocol):
             "evidence_sha256": file_hash(path)}
 
 
-def read_evaluation_environment(path, commit, code_hash, image_hash, raw_dvc_hash):
+def read_evaluation_environment(path, commit, code_hash, image_hash, raw_dvc_hash,
+                                equivalent_dvc_hashes=()):
     data = read_json(path)
     expected = {
         "git_commit": (commit, "counting summary"),
@@ -109,7 +111,8 @@ def read_evaluation_environment(path, commit, code_hash, image_hash, raw_dvc_has
     if unexpected:
         raise ValueError(f"evaluation environment unexpected fields: {', '.join(sorted(unexpected))}")
     mismatched = [f"{key} differs from {source}" for key, (value, source) in expected.items()
-                  if data[key] != value]
+                  if data[key] != value and not (key == "raw_dvc_sha256" and
+                                                data[key] in equivalent_dvc_hashes)]
     if mismatched:
         raise ValueError("evaluation environment mismatch: " + "; ".join(mismatched))
     if not isinstance(data["ultralytics_version"], str) or not data["ultralytics_version"]:
@@ -117,14 +120,34 @@ def read_evaluation_environment(path, commit, code_hash, image_hash, raw_dvc_has
     return data
 
 
+def raw_dvc_identity(content):
+    """Dataset identity comes from the DVC tree hash, not platform line endings."""
+    import re
+
+    data = yaml.safe_load(content.decode("utf-8-sig"))
+    outs = data.get("outs") if isinstance(data, dict) else None
+    if not isinstance(outs, list) or len(outs) != 1 or not isinstance(outs[0], dict):
+        raise ValueError("expected one raw dataset DVC output")
+    out = outs[0]
+    if out.get("path") != "raw" or not re.fullmatch(r"[0-9a-f]{32}\.dir", str(out.get("md5"))):
+        raise ValueError("invalid raw DVC dataset identity")
+    for key in ("size", "nfiles"):
+        if type(out.get(key)) is not int or out[key] <= 0:
+            raise ValueError("invalid raw DVC " + key)
+    return {key: out[key] for key in ("md5", "size", "nfiles")}
+
+
 def prepare(archive, checkpoint, manifest, counting_csv, counting_summary,
             imported_run_id, quality_config=ROOT / "configs/model_quality.yaml",
-            latency_evidence=None, evaluation_environment=None):
+            latency_evidence=None, evaluation_environment=None,
+            evaluation_protocol=ROOT / "configs/evaluation_protocol.yaml"):
     """Build verified local evidence; no MLflow connection or remote writes."""
     archive, checkpoint, manifest = map(Path, (archive, checkpoint, manifest))
     if len(imported_run_id) != 32 or any(c not in "0123456789abcdef" for c in imported_run_id):
         raise ValueError("imported run ID must be 32 lowercase hexadecimal characters")
     with ZipFile(archive) as stream:
+        if len(stream.namelist()) != len(set(stream.namelist())):
+            raise ValueError("duplicate ZIP entries")
         metadata = json.loads(stream.read("metadata.json"))
         def artifact(name):
             content = stream.read("artifacts/" + name)
@@ -148,6 +171,7 @@ def prepare(archive, checkpoint, manifest, counting_csv, counting_summary,
     if metadata["tags"].get("type") != "training" or metadata["tags"].get("test_evaluated") != "false":
         raise ValueError("a finished, non-test training run is required")
     summary = read_json(counting_summary)
+    validation = verify_contract(metadata, summary, counting_csv, manifest, evaluation_protocol)
     commit = metadata["tags"].get("git_commit")
     evaluation_commit = summary.get("commit_git")
     if not commit or not evaluation_commit:
@@ -163,12 +187,18 @@ def prepare(archive, checkpoint, manifest, counting_csv, counting_summary,
     image_hash = digest_bytes(canonical(images).encode())
     code_hash = digest_bytes(evaluation_code)
     raw_dvc_hash = digest_bytes(dataset_dvc)
+    raw_identity = raw_dvc_identity(dataset_dvc)
+    normalised_dvc = dataset_dvc.replace(b"\r\n", b"\n")
+    equivalent_dvc_hashes = {digest_bytes(normalised_dvc),
+                             digest_bytes(normalised_dvc.replace(b"\n", b"\r\n"))}
     evaluation_runtime = (read_evaluation_environment(
-        evaluation_environment, evaluation_commit, code_hash, image_hash, raw_dvc_hash
+        evaluation_environment, evaluation_commit, code_hash, image_hash, raw_dvc_hash,
+        equivalent_dvc_hashes
     ) if evaluation_environment else None)
     protocol = {
         "manifest_sha256": report["provenance"]["dataset_manifest"]["sha256"],
-        "raw_dvc_sha256": raw_dvc_hash,
+        "raw_dvc_identity": raw_identity,
+        "schema_version": 2,
         "validation_image_names_sha256": image_hash,
         "analysis_code_sha256": code_hash,
         "evaluation_ultralytics_version": (evaluation_runtime["ultralytics_version"]
@@ -200,6 +230,8 @@ def prepare(archive, checkpoint, manifest, counting_csv, counting_summary,
         "evaluation_environment_sha256": (file_hash(evaluation_environment)
                                            if evaluation_environment else None),
         "quality_status": "passed", "verified": True,
+        "validation_contract": validation,
+        "training_raw_dvc_file_sha256": raw_dvc_hash,
         "comparison_verified": evaluation_runtime is not None,
         "metrics": report["metrics"],
         "protocol": protocol,
@@ -266,7 +298,18 @@ class Registry:
     def versions(self):
         if registered_model(self.client) is None:
             return []
-        return list(self.client.search_model_versions(f"name = '{MODEL}'"))
+        versions, token, seen = [], None, set()
+        while True:
+            page = self.client.search_model_versions(
+                f"name = '{MODEL}'", **({"page_token": token} if token else {})
+            )
+            versions.extend(page)
+            token = getattr(page, "token", None)
+            if not token:
+                return versions
+            if token in seen:
+                raise ValueError("repeated model-version page token")
+            seen.add(token)
 
     def version_record(self, version):
         try:
@@ -355,7 +398,7 @@ class Registry:
             "parkvision.registry_event": "true", "parkvision.event_id": event_id,
             "parkvision.action": action,
         })
-        event = {"id": event_id, "at_utc": datetime.now(UTC).isoformat(),
+        event = {"id": event_id, "at_utc": datetime.now(timezone.utc).isoformat(),
                  "action": action, "candidate": candidate,
                  "previous_champion": previous, "decision": decision, "reason": reason}
         self.client.log_dict(run.info.run_id, event, "decision.json")
@@ -498,6 +541,7 @@ def main(argv=None):
                          args.counting_csv, args.counting_summary, args.imported_run_id,
                          latency_evidence=args.latency_evidence,
                          evaluation_environment=args.evaluation_environment)
+        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
         Path(args.output).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
         print(args.output)
         return

@@ -450,8 +450,15 @@ class RegistryTests(unittest.TestCase):
         checkpoint.write_bytes(b"checkpoint")
         checkpoint_hash = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
         manifest = self.root / "split_manifest.csv"
-        manifest.write_bytes(b"split manifest")
+        manifest.write_text("image,date,split\n"
+                            "data/raw/train/images/a.jpg,2012-01-01,train\n"
+                            "data/raw/valid/images/img.jpg,2012-01-02,valid\n"
+                            "data/raw/test/images/z.jpg,2012-01-03,test\n", encoding="utf-8")
         manifest_hash = hashlib.sha256(manifest.read_bytes()).hexdigest()
+        evaluation_protocol = self.root / "protocol.yaml"
+        evaluation_protocol.write_text(json.dumps({"split": "valid", "images": 1,
+            "manifest_sha256": manifest_hash, "confidence": 0.25, "nms_iou": 0.7,
+            "matching_iou": 0.5, "imgsz": 640}), encoding="utf-8")
         counting_csv = self.root / "comptage.csv"
         with counting_csv.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream)
@@ -469,7 +476,8 @@ class RegistryTests(unittest.TestCase):
         artifacts = {
             "training/weights/best.pt": checkpoint.read_bytes(),
             "provenance/environment.json": b'{"ultralytics":"8.4.201"}',
-            "provenance/raw.dvc": b"DVC metadata",
+            "provenance/raw.dvc": (b"outs:\n- md5: " + b"a" * 32 +
+                                   b".dir\n  path: raw\n  size: 20\n  nfiles: 2\n"),
             "provenance/train_c.yaml": b"model: yolo26n.pt\n",
         }
         archive = self.root / "export.zip"
@@ -501,7 +509,8 @@ class RegistryTests(unittest.TestCase):
         with patch("src.models.registry.subprocess.check_output", return_value=committed_code):
             with self.assertRaises(ValueError) as mismatch:
                 prepare(archive, checkpoint, manifest, counting_csv, summary,
-                        "d" * 32, evaluation_environment=environment)
+                        "d" * 32, evaluation_environment=environment,
+                        evaluation_protocol=evaluation_protocol)
             self.assertIn("analysis_code_sha256 differs from evaluator code at the recorded Git commit",
                           str(mismatch.exception))
             self.assertNotIn(sidecar["analysis_code_sha256"], str(mismatch.exception))
@@ -509,7 +518,8 @@ class RegistryTests(unittest.TestCase):
             sidecar["analysis_code_sha256"] = hashlib.sha256(committed_code).hexdigest()
             environment.write_text(json.dumps(sidecar), encoding="utf-8")
             record = prepare(archive, checkpoint, manifest, counting_csv, summary,
-                             "d" * 32, evaluation_environment=environment)
+                             "d" * 32, evaluation_environment=environment,
+                        evaluation_protocol=evaluation_protocol)
         self.assertEqual(record["training_git_commit"], training_commit)
         self.assertEqual(record["evaluation_git_commit"], evaluation_commit)
         self.assertTrue(record["comparison_verified"])
