@@ -26,7 +26,7 @@ split is reserved for final evaluation after model selection.
 ## Requirements
 
 Run commands from the repository root. For the quality gate and its tests,
-install only PyYAML (Python 3.12 is used in CI):
+install only PyYAML (CI tests Python 3.10 and 3.12):
 
 ```powershell
 python -m pip install PyYAML==6.0.3
@@ -95,11 +95,34 @@ ruff format --check src/analysis/validate_model.py tests/test_validate_model.py
 git diff --check
 ```
 
-The full local and mocked test suite, including `test_transfer_run.py`, runs
-with `python -m pytest tests/ -q` after installing the pinned CI dependencies
-in [GitHub Actions](.github/workflows/ci.yml). CI uses Python 3.12 and MLflow
-3.17.2. It needs no GPU, dataset, checkpoint, or remote tracking server.
-The commands above remain useful for a lighter quality-gate check.
-Current local verification used Python 3.13.12 and MLflow 2.22.5; this does
-not substitute for a passing CI run with the pinned Python 3.12/MLflow 3.17.2
-environment before merge.
+The full local and mocked test suite runs with: python -m pytest tests/ -q.
+
+Install the pinned test dependencies listed in .github/workflows/ci.yml.
+CI runs on pull requests targeting main and pushes to main,
+using Python 3.10 and 3.12 with MLflow 3.17.2.
+Tests require no GPU, dataset, trained checkpoint, or remote tracking server.
+The transfer test uses temporary local MLflow storage.
+These checks do not deploy models or change the champion alias.
+
+## Jalon de mi-parcours
+
+Les livrables de mi-parcours sont dans `docs/mi_parcours/` : rapport (PDF), pitch (PDF et PPTX) et sources LaTeX du rapport.
+
+### Reproduire les résultats
+
+```powershell
+git clone https://github.com/Nourchenne/ParkVision.git
+cd ParkVision
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-training.txt "dvc[s3]"
+dvc remote modify dagshub --local access_key_id VOTRE_JETON_DAGSHUB
+dvc remote modify dagshub --local secret_access_key VOTRE_JETON_DAGSHUB
+dvc pull -r dagshub
+dvc repro
+python src/models/train.py --config configs/train_b.yaml --check
+```
+
+Le jeton DagsHub reste personnel : il est écrit dans `.dvc/config.local`, qui n'est pas suivi par Git.
+
+Suivi des expériences : https://dagshub.com/Nourchenne/ParkVision.mlflow (runs `A_yolov8n_baseline`, `B_yolov8s_baseline`, `C_yolo26n`).
