@@ -1,0 +1,22 @@
+{
+  "images_evaluees": 2500,
+  "mae_libres": 0.2652,
+  "mae_occupees": 0.1496,
+  "total_libres_annotees": 73367,
+  "total_libres_predites": 74004,
+  "total_occupees_annotees": 65669,
+  "total_occupees_predites": 65799,
+  "erreurs_par_type": {
+    "oubli": 40,
+    "fausse_detection": 753,
+    "double_detection": 54,
+    "confusion": 156
+  },
+  "seuil_confiance": 0.25,
+  "seuil_nms_iou": 0.7,
+  "seuil_appariement_iou": 0.5,
+  "imgsz": 640,
+  "poids": "runs/detect/C_yolo26n_a43e67dc/weights/best.pt",
+  "poids_sha256": "efde509277dc0ea69f3077356c81b86839bd3caf19343ce58ca562fbe097c69a",
+  "commit_git": "6f38befd898cc3e4fecafb7dbd97d577bbac3334"
+}

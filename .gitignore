@@ -1,4 +1,5 @@
 .venv/
+.env
 
 # Sorties locales des experiences ParkVision
 /runs/

@@ -1,0 +1,7 @@
+{
+  "git_commit": "6f38befd898cc3e4fecafb7dbd97d577bbac3334",
+  "analysis_code_sha256": "26b5375bc3aa5f4a35bb43527428ce68e418225f4098a0418e2b9f4ea624b7cc",
+  "validation_image_names_sha256": "7813c7f39d414a36d1373d8bc7060b3f960280970ee6867ebcafdd061c3c68f9",
+  "raw_dvc_sha256": "87ebcc48290ad66bac44368ce57c948a758f3ece55295e81b36813d5472bb963",
+  "ultralytics_version": "8.4.201"
+}

@@ -3,11 +3,13 @@
 import csv
 import hashlib
 import importlib.util
+import io
 import json
 import sys
 import tempfile
 import types
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -17,6 +19,8 @@ from src.analysis import analyze_errors
 from src.models.registry import (
     Registry,
     canonical,
+    expected_alias,
+    main,
     prepare,
     read_evaluation_environment,
     read_latency,
@@ -50,12 +54,19 @@ class Missing(Exception):
     error_code = "RESOURCE_DOES_NOT_EXIST"
 
 
+class InvalidParameter(Exception):
+    error_code = "INVALID_PARAMETER_VALUE"
+
+
 class FakeClient:
     def __init__(self, root, checkpoint):
         self.root = root
         self.checkpoint = checkpoint
         self.models = {}
+        self.model_exists = False
         self.alias = None
+        self.alias_reads = 0
+        self.version_searches = 0
         self.experiment = None
         self.runs = {}
         self.fail_alias = False
@@ -82,14 +93,24 @@ class FakeClient:
             raise Missing() from error
 
     def search_model_versions(self, filter_string):
+        self.version_searches += 1
+        if not self.model_exists and not self.models:
+            raise AssertionError("version search must skip an absent model")
         return list(self.models.values())
 
+    def search_registered_models(self, page_token=None):
+        if self.model_exists or self.models:
+            return [SimpleNamespace(name="ParkVision-Detector",
+                                    aliases={"champion": self.alias} if self.alias else {})]
+        return []
+
     def get_registered_model(self, name):
-        if not self.models:
+        if not self.models and not self.model_exists:
             raise Missing()
         return SimpleNamespace(name=name)
 
     def create_registered_model(self, name):
+        self.model_exists = True
         return SimpleNamespace(name=name)
 
     def create_model_version(self, name, source, run_id, tags):
@@ -105,8 +126,9 @@ class FakeClient:
         return self.models[str(version)]
 
     def get_model_version_by_alias(self, name, alias):
+        self.alias_reads += 1
         if self.alias is None:
-            raise Missing()
+            raise InvalidParameter(f"Registered model alias {alias} not found.")
         version = self.alias
         if self.bad_readback:
             self.bad_readback = False
@@ -174,6 +196,90 @@ class RegistryTests(unittest.TestCase):
         self.client.models[str(number)] = SimpleNamespace(
             version=str(number), tags={"parkvision.candidate": canonical(record),
                                        "parkvision.inference_verified": "true"})
+
+    def test_inspect_empty_registry_and_model_without_alias(self):
+        fake_mlflow = types.ModuleType("mlflow")
+        fake_mlflow.MlflowClient = lambda **kwargs: self.client
+        for model_exists in (False, True):
+            with self.subTest(model_exists=model_exists):
+                self.client.model_exists = model_exists
+                output = io.StringIO()
+                with patch.dict(sys.modules, {"mlflow": fake_mlflow}), redirect_stdout(output):
+                    main(["inspect"])
+                self.assertEqual(json.loads(output.getvalue()),
+                                 {"champion": None, "versions": []})
+                self.assertEqual(self.client.alias_reads, 0)
+                if not model_exists:
+                    self.assertEqual(self.client.version_searches, 0)
+
+    def test_existing_model_with_champion_reads_alias(self):
+        self.client.model_exists = True
+        self.client.alias = "7"
+        self.assertEqual(expected_alias(self.client), "7")
+        self.assertEqual(self.client.alias_reads, 1)
+
+    def test_existing_model_without_champion_skips_alias_endpoint(self):
+        self.client.model_exists = True
+        self.assertIsNone(expected_alias(self.client))
+        self.assertEqual(self.client.alias_reads, 0)
+
+    def test_registry_search_error_is_not_treated_as_missing_model(self):
+        with (patch.object(self.client, "search_registered_models",
+                           side_effect=RuntimeError("registry API unavailable")),
+              self.assertRaisesRegex(RuntimeError, "registry API unavailable")):
+            expected_alias(self.client)
+        self.assertEqual(self.client.alias_reads, 0)
+
+    def test_registry_search_checks_later_pages(self):
+        class Page(list):
+            pass
+
+        first = Page([SimpleNamespace(name="another-model", aliases={})])
+        first.token = "next"
+        second = Page([SimpleNamespace(name="ParkVision-Detector",
+                                       aliases={"champion": "7"})])
+        second.token = None
+        self.client.alias = "7"
+        with patch.object(self.client, "search_registered_models",
+                          side_effect=[first, second]) as search:
+            self.assertEqual(expected_alias(self.client), "7")
+        self.assertEqual(search.call_count, 2)
+        self.assertEqual(self.client.alias_reads, 1)
+
+    def test_missing_alias_errors_do_not_hide_other_failures(self):
+        self.client.model_exists = True
+        self.client.alias = "7"
+        for error in (InvalidParameter("unsupported alias API"),
+                      InvalidParameter("invalid model name"),
+                      RuntimeError("permission denied"),
+                      ConnectionError("network unavailable")):
+            with (self.subTest(error=str(error)),
+                  patch.object(self.client, "get_model_version_by_alias", side_effect=error),
+                  self.assertRaises(type(error))):
+                expected_alias(self.client)
+
+    def test_missing_alias_paths_keep_manual_bootstrap(self):
+        self.add_version(1, candidate())
+        self.assertIsNone(expected_alias(self.client))
+        self.assertFalse(self.service.promote_auto("1", None, policy(self.lock))["changed"])
+        self.assertIsNone(self.client.alias)
+
+        fake_mlflow = types.ModuleType("mlflow")
+        fake_mlflow.MlflowClient = lambda **kwargs: self.client
+        output = io.StringIO()
+        with patch.dict(sys.modules, {"mlflow": fake_mlflow}), redirect_stdout(output):
+            main(["compare", "--version", "1", "--expected-champion", "none"])
+        self.assertFalse(json.loads(output.getvalue())["promote"])
+
+    def test_rollback_can_read_missing_alias_after_recorded_champion(self):
+        self.add_version(1, candidate())
+        self.add_version(2, candidate(0.82))
+        self.client.alias = "1"
+        self.service.manual("override", "2", "1", "test override")
+        self.client.alias = None
+        result = self.service.manual("rollback", "1", None, "restore previous champion")
+        self.assertTrue(result["changed"])
+        self.assertEqual(self.client.alias, "1")
 
     def test_register_and_duplicate(self):
         version = self.service.register(self.record, self.checkpoint, "sample.jpg")

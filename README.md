@@ -10,6 +10,16 @@ Registry packaging, policy-based champion selection, and rollback are covered
 in [the Phase 2 workflow](docs/mlops_phase2.md). Automatic promotion is disabled
 by default and requires explicit policy values and a shared writer lock.
 
+## Model Registry — Phase 2
+
+The [teammate registration guide](docs/model_registry_teammate_guide.md) walks
+through read-only import inspection, validation evidence, candidate preparation,
+and explicit registration in the [ParkVision DagsHub Model Registry](https://dagshub.com/Nourchenne/ParkVision.mlflow).
+YOLO26n is registered as `ParkVision-Detector` Version 1. Registration creates
+a candidate version; it does not assign the `champion` alias or deploy it.
+No champion is currently assigned. Coordinate a single registry writer until
+all machines share a verified lock strategy.
+
 The recorded Experiment C results are **validation** results. The held-out test
 split is reserved for final evaluation after model selection.
 
@@ -85,7 +95,11 @@ ruff format --check src/analysis/validate_model.py tests/test_validate_model.py
 git diff --check
 ```
 
-The MLflow transfer test in `test_training_tools.py` needs MLflow and is not
-part of lightweight CI. [GitHub Actions](.github/workflows/ci.yml) runs on
-pull requests targeting `main` and pushes to `main`, using synthetic fixtures
-without a GPU, dataset, checkpoint, or tracking server.
+The full local and mocked test suite, including `test_transfer_run.py`, runs
+with `python -m pytest tests/ -q` after installing the pinned CI dependencies
+in [GitHub Actions](.github/workflows/ci.yml). CI uses Python 3.12 and MLflow
+3.17.2. It needs no GPU, dataset, checkpoint, or remote tracking server.
+The commands above remain useful for a lighter quality-gate check.
+Current local verification used Python 3.13.12 and MLflow 2.22.5; this does
+not substitute for a passing CI run with the pinned Python 3.12/MLflow 3.17.2
+environment before merge.

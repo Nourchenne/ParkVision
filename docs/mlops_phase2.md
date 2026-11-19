@@ -3,8 +3,9 @@
 Phase 2 uses `https://dagshub.com/Nourchenne/ParkVision.mlflow` and the
 registered name `ParkVision-Detector`. It does not train, deploy, or modify
 imported experiment runs. `configs/registry_policy.yaml` disables automatic
-promotion by default. The live DagsHub registry and alias APIs could not be
-verified during development because credentials were unavailable.
+promotion by default. Experiment C's YOLO26n is registered as Version 1;
+no champion alias is assigned. See the
+[teammate guide](model_registry_teammate_guide.md) for the current workflow.
 
 ## Candidate evidence
 

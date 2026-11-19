@@ -45,13 +45,24 @@ def is_not_found(error):
     return code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND")
 
 
-def expected_alias(client):
-    try:
-        return str(client.get_model_version_by_alias(MODEL, "champion").version)
-    except Exception as error:
-        if is_not_found(error):
+def registered_model(client):
+    page_token = None
+    while True:
+        models = (client.search_registered_models(page_token=page_token) if page_token else
+                  client.search_registered_models())
+        for model in models:
+            if model.name == MODEL:
+                return model
+        page_token = getattr(models, "token", None)
+        if not page_token:
             return None
-        raise
+
+
+def expected_alias(client):
+    model = registered_model(client)
+    if model is None or "champion" not in model.aliases:
+        return None
+    return str(client.get_model_version_by_alias(MODEL, "champion").version)
 
 
 def read_latency(path, protocol):
@@ -253,6 +264,8 @@ class Registry:
         self.verifier = verifier
 
     def versions(self):
+        if registered_model(self.client) is None:
+            return []
         return list(self.client.search_model_versions(f"name = '{MODEL}'"))
 
     def version_record(self, version):
@@ -447,6 +460,9 @@ class Registry:
 
 
 def main(argv=None):
+    from dotenv import load_dotenv
+
+    load_dotenv(ROOT / ".env", override=False)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tracking-uri", default=ENDPOINT)
     sub = parser.add_subparsers(dest="action", required=True)
@@ -525,5 +541,18 @@ def main(argv=None):
     print(json.dumps(result, indent=2, default=str))
 
 
+def exit_on_mlflow_error(error):
+    """Report remote failures without echoing exception text or credentials."""
+    status = error.get_http_status_code()
+    if status in (401, 403):
+        raise SystemExit(f"DagsHub authentication or permission denied (HTTP {status})")
+    raise SystemExit(f"MLflow request failed (HTTP {status}); inspect remote state before retrying")
+
+
 if __name__ == "__main__":
-    main()
+    from mlflow.exceptions import MlflowException
+
+    try:
+        main()
+    except MlflowException as error:
+        exit_on_mlflow_error(error)
