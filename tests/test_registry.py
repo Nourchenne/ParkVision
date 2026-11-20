@@ -324,6 +324,130 @@ class RegistryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "conflicting"):
             self.service.register(changed, self.checkpoint, "sample.jpg")
 
+    def revision(self):
+        return {**self.record, "evaluation_csv_sha256": "new-csv",
+                "validation_contract": {"complete_validation_set": True,
+                                        "protocol_matches": True, "training_run": True,
+                                        "test_not_evaluated_tag": True}}
+
+    def register_revision(self, record=None, version="1", reason="Fresh validation"):
+        return self.service.register(
+            self.revision() if record is None else record, self.checkpoint, "sample.jpg",
+            revalidate_version=version, revalidation_reason=reason)
+
+    def test_revalidation_preserves_history_and_alias_and_is_idempotent(self):
+        self.service.register(self.record, self.checkpoint, "sample.jpg")
+        self.client.alias = "1"
+        original = dict(self.client.models["1"].tags)
+        with patch.object(self.service, "packager", wraps=self.service.packager) as packager:
+            self.assertEqual(self.register_revision(), "2")
+            self.assertEqual(self.register_revision(), "2")
+            packager.assert_called_once()
+        self.assertEqual(len(self.client.models), 2)
+        self.assertEqual(self.client.models["1"].tags, original)
+        self.assertEqual(self.client.alias, "1")
+        self.assertEqual(self.client.models["2"].tags["parkvision.revalidation_of"], "1")
+        self.assertEqual(self.client.models["2"].tags["parkvision.revalidation_reason"],
+                         "Fresh validation")
+
+    def test_revalidation_requires_reason_and_verified_validation(self):
+        self.service.register(self.record, self.checkpoint, "sample.jpg")
+        for reason in (None, "", "  "):
+            with self.subTest(reason=reason), self.assertRaisesRegex(ValueError, "reason"):
+                self.register_revision(reason=reason)
+        for field in ("complete_validation_set", "protocol_matches", "training_run",
+                      "test_not_evaluated_tag"):
+            record = self.revision()
+            record["validation_contract"][field] = False
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "complete verified"):
+                self.register_revision(record)
+        with self.assertRaisesRegex(ValueError, "complete verified"):
+            self.register_revision({**self.revision(), "comparison_verified": False})
+        self.assertEqual(len(self.client.models), 1)
+
+    def test_revalidation_rejects_changed_training_lineage(self):
+        self.service.register(self.record, self.checkpoint, "sample.jpg")
+        for field in ("original_run_id", "imported_run_id", "manifest_sha256",
+                      "export_sha256", "architecture", "training_git_commit",
+                      "training_config_sha256", "training_script_sha256",
+                      "training_ultralytics_version"):
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "lineage"):
+                self.register_revision({**self.revision(), field: "other"})
+        with self.assertRaisesRegex(ValueError, "local checkpoint hash mismatch"):
+            self.register_revision({**self.revision(), "checkpoint_sha256": "other"})
+        self.assertEqual(len(self.client.models), 1)
+
+    def test_revalidation_rejects_missing_unverified_and_unchanged_predecessor(self):
+        self.service.register(self.revision(), self.checkpoint, "sample.jpg")
+        with self.assertRaisesRegex(ValueError, "does not exist"):
+            self.register_revision(version="999")
+        with self.assertRaisesRegex(ValueError, "unchanged"):
+            self.register_revision()
+        self.client.models["1"].tags["parkvision.inference_verified"] = "false"
+        with self.assertRaisesRegex(ValueError, "inference verification"):
+            self.register_revision()
+
+    def test_revalidation_inference_failure_can_retry_without_duplicate(self):
+        self.service.register(self.record, self.checkpoint, "sample.jpg")
+        with (patch.object(self.service, "verifier", side_effect=RuntimeError("inference failed")),
+              self.assertRaisesRegex(RuntimeError, "inference failed")):
+            self.register_revision()
+        self.assertEqual(self.client.models["2"].tags["parkvision.inference_verified"], "false")
+        self.assertEqual(self.register_revision(), "2")
+        self.assertEqual(len(self.client.models), 2)
+        self.assertEqual(self.client.models["2"].tags["parkvision.inference_verified"], "true")
+
+    def test_revalidation_checks_all_conflicts_before_reuse(self):
+        self.service.register(self.record, self.checkpoint, "sample.jpg")
+        self.register_revision()
+        duplicate = self.client.models["2"]
+        tags = dict(duplicate.tags)
+        tags["parkvision.candidate"] = canonical({**self.revision(), "metrics": {}})
+        self.client.models["3"] = SimpleNamespace(version="3", tags=tags)
+        with self.assertRaisesRegex(ValueError, "conflicting"):
+            self.register_revision()
+
+    def test_revalidation_supports_revision_chain_and_rejects_cycles(self):
+        self.service.register(self.record, self.checkpoint, "sample.jpg")
+        self.register_revision()
+        next_record = {**self.revision(), "evaluation_csv_sha256": "third-csv"}
+        self.assertEqual(self.register_revision(next_record, version="2"), "3")
+        self.assertEqual(self.register_revision(next_record, version="2"), "3")
+        self.client.models["1"].tags["parkvision.revalidation_of"] = "2"
+        with self.assertRaisesRegex(ValueError, "cyclic"):
+            self.register_revision(next_record, version="2")
+
+    def test_revalidation_rejects_reason_without_predecessor(self):
+        with self.assertRaisesRegex(ValueError, "requires a predecessor"):
+            self.register_revision(version=None)
+        self.assertFalse(self.client.models)
+
+    def test_revalidation_cli_recomputes_evidence_before_registration(self):
+        fake_mlflow = types.ModuleType("mlflow")
+        fake_mlflow.MlflowClient = lambda **kwargs: self.client
+        argv = ["register", "--revalidate-version", "1",
+                "--revalidation-reason", "Fresh validation"]
+        for key in ("candidate", "archive", "checkpoint", "manifest", "counting-csv",
+                    "counting-summary", "sample-image", "lock-file", "evaluation-environment"):
+            argv.extend(["--" + key, key])
+        record = self.revision()
+        with (patch.dict(sys.modules, {"mlflow": fake_mlflow}),
+              patch("src.models.registry.read_json", return_value=record),
+              patch("src.models.registry.prepare", return_value=record) as prepare_mock,
+              patch.object(Registry, "register", return_value="2") as register_mock,
+              redirect_stdout(io.StringIO())):
+            main(argv)
+            self.assertEqual(prepare_mock.call_args.kwargs["evaluation_environment"],
+                             "evaluation-environment")
+            register_mock.assert_called_once_with(
+                record, "checkpoint", "sample-image", revalidate_version="1",
+                revalidation_reason="Fresh validation")
+            register_mock.reset_mock()
+            prepare_mock.return_value = {**record, "evaluation_csv_sha256": "changed"}
+            with self.assertRaisesRegex(ValueError, "independently recomputed"):
+                main(argv)
+            register_mock.assert_not_called()
+
     def test_policy_better_worse_missing_and_incomparable(self):
         p = policy(self.lock)
         champion = candidate(0.8)

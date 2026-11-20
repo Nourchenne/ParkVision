@@ -330,12 +330,49 @@ class Registry:
             raise ValueError("version provenance tags contradict candidate evidence")
         return record
 
-    def register(self, record, checkpoint, sample_image):
+    def _revalidation_ancestors(self, record, version, reason):
+        """Validate explicit evaluation lineage without rewriting earlier versions."""
+        if version is None:
+            if reason is not None:
+                raise ValueError("revalidation reason requires a predecessor version")
+            return set()
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("revalidation requires a non-empty reason")
+        contract = record.get("validation_contract", {})
+        if (record.get("comparison_verified") is not True or
+            any(contract.get(key) is not True for key in (
+                "complete_validation_set", "protocol_matches", "training_run",
+                "test_not_evaluated_tag"))):
+            raise ValueError("revalidation requires complete verified validation evidence")
+        required = ("original_run_id", "imported_run_id", "checkpoint_sha256",
+                    "manifest_sha256", "export_sha256", "architecture",
+                    "training_git_commit", "training_config_sha256")
+        optional = ("training_script_sha256", "training_ultralytics_version")
+        ancestors = set()
+        while version is not None:
+            version = str(version)
+            if version in ancestors:
+                raise ValueError("cyclic revalidation lineage")
+            old = self.version_record(version)
+            if (any(not record.get(key) or old.get(key) != record[key] for key in required)
+                or any(old.get(key) != record.get(key) for key in optional)):
+                raise ValueError("revalidation must preserve training and checkpoint lineage")
+            if not ancestors and old == record:
+                raise ValueError("revalidation evidence is unchanged; reuse the existing version")
+            ancestors.add(version)
+            version = self.client.get_model_version(MODEL, version).tags.get(
+                "parkvision.revalidation_of")
+        return ancestors
+
+    def register(self, record, checkpoint, sample_image, *,
+                 revalidate_version=None, revalidation_reason=None):
         if record.get("quality_status") != "passed" or not record.get("verified"):
             raise ValueError("candidate is not eligible for registration")
         if file_hash(checkpoint) != record["checkpoint_sha256"]:
             raise ValueError("local checkpoint hash mismatch")
         with registry_lock(self.lock_file):
+            ancestors = self._revalidation_ancestors(
+                record, revalidate_version, revalidation_reason)
             run = self.client.get_run(record["imported_run_id"])
             tags = run.data.tags
             if (run.info.status != "FINISHED" or
@@ -349,16 +386,26 @@ class Registry:
                 record["imported_run_id"], "training/weights/best.pt")
             if file_hash(remote) != record["checkpoint_sha256"]:
                 raise ValueError("remote checkpoint hash mismatch")
+            reusable = []
             for mv in self.versions():
                 old = mv.tags
                 if (old.get("parkvision.imported_run_id") == record["imported_run_id"] and
                     old.get("parkvision.checkpoint_sha256") == record["checkpoint_sha256"]):
-                    if json.loads(old.get("parkvision.candidate", "{}")) != record:
+                    if str(mv.version) in ancestors:
+                        continue
+                    if (json.loads(old.get("parkvision.candidate", "{}")) != record or
+                        (revalidate_version is not None and
+                         old.get("parkvision.revalidation_of") != str(revalidate_version))):
                         raise ValueError("existing version has conflicting candidate evidence")
-                    self.verifier(mv.version, sample_image, self.tracking_uri)
-                    self.client.set_model_version_tag(MODEL, mv.version,
+                    reusable.append(mv)
+            if len(reusable) > 1:
+                raise ValueError("multiple matching versions; inspect registry before retrying")
+            if reusable:
+                mv = reusable[0]
+                self.verifier(mv.version, sample_image, self.tracking_uri)
+                self.client.set_model_version_tag(MODEL, mv.version,
                                                       "parkvision.inference_verified", "true")
-                    return str(mv.version)
+                return str(mv.version)
             uri, package_run = self.packager(record, checkpoint, self.tracking_uri)
             try:
                 self.client.get_registered_model(MODEL)
@@ -382,6 +429,9 @@ class Registry:
                 "parkvision.packaging_code_sha256": file_hash(ROOT / "src/models/registry_adapter.py"),
                 "parkvision.inference_verified": "false",
             }
+            if revalidate_version is not None:
+                version_tags["parkvision.revalidation_of"] = str(revalidate_version)
+                version_tags["parkvision.revalidation_reason"] = revalidation_reason.strip()
             mv = self.client.create_model_version(MODEL, uri, run_id=package_run,
                                                   tags=version_tags)
             self.verifier(mv.version, sample_image, self.tracking_uri)
@@ -524,6 +574,9 @@ def main(argv=None):
                 cmd.add_argument("--" + key, required=True)
             cmd.add_argument("--latency-evidence")
             cmd.add_argument("--evaluation-environment")
+        if action == "register":
+            cmd.add_argument("--revalidate-version", help="Preserve this version and register new evaluation evidence")
+            cmd.add_argument("--revalidation-reason", help="Reason for the explicit evaluation revision")
         if action == "process":
             cmd.add_argument("--policy", default="configs/registry_policy.yaml")
         if action in ("compare", "promote-auto", "override", "rollback"):
@@ -570,7 +623,9 @@ def main(argv=None):
         result = (service.process(verified, args.checkpoint, args.sample_image,
                                   load_policy(args.policy)) if args.action == "process" else
                   {"version": service.register(verified, args.checkpoint,
-                                               args.sample_image)})
+                                               args.sample_image,
+                                               revalidate_version=args.revalidate_version,
+                                               revalidation_reason=args.revalidation_reason)})
     elif args.action == "compare":
         policy = load_policy(args.policy)
         current = expected_alias(client)
