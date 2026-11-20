@@ -6,6 +6,7 @@ Produit, pour un fichier de poids donne :
 - erreurs_detail.csv : chaque erreur (oubli, fausse detection, double detection,
   confusion libre/occupee) avec sa position ;
 - exemples/ : quelques images annotees (verite et predictions) par type d'erreur.
+- evaluation_environment.json : environnement et empreintes pour comparer les runs.
 
 Le lot valid est lu dans data/processed/split_manifest.csv (jamais data/raw/valid,
 qui correspond a l'ancien decoupage). Le lot test n'est jamais ouvert.
@@ -198,6 +199,18 @@ def predict(weights, images, conf, nms_iou, imgsz, device, batch):
                                                boxes.conf.tolist())]
 
 
+def evaluation_environment(rows, git_commit, ultralytics_version):
+    names = sorted(row["image"] for row in rows)
+    encoded = json.dumps(names, sort_keys=True, separators=(",", ":")).encode()
+    return {
+        "git_commit": git_commit,
+        "analysis_code_sha256": sha256(__file__),
+        "validation_image_names_sha256": hashlib.sha256(encoded).hexdigest(),
+        "raw_dvc_sha256": sha256(ROOT / "data/raw.dvc"),
+        "ultralytics_version": ultralytics_version,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--weights", required=True, help="Chemin de best.pt")
@@ -211,6 +224,7 @@ def main():
     parser.add_argument("--limit", type=int, help="Essai : ne traiter que N images")
     args = parser.parse_args()
 
+    import ultralytics
     from PIL import Image
 
     images = read_valid_images(ROOT / args.manifest)
@@ -270,6 +284,10 @@ def main():
     })
     (output / "comptage_resume.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    (output / "evaluation_environment.json").write_text(
+        json.dumps(evaluation_environment(count_rows, summary["commit_git"],
+                                          ultralytics.__version__), indent=2) + "\n",
+        encoding="utf-8", newline="\n")
 
     for kind, name in choose_examples(per_events, per_gap):
         path, truth, predictions = cache[name]

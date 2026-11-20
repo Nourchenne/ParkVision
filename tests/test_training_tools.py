@@ -4,7 +4,7 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import yaml
 
@@ -108,7 +108,7 @@ class RunTransfer(unittest.TestCase):
             source.log_artifact(run_id, str(sample), "nested")
             source.set_terminated(run_id, "FINISHED", 4000)
             archive = transfer.export_run(source_uri, run_id, root / "run.zip")
-            imported = transfer.import_run(archive, destination_uri)
+            imported = transfer.import_run(archive, destination_uri, write=True)
             restored = destination.get_run(imported)
             self.assertEqual(restored.data.params, {"batch": "16"})
             self.assertEqual((restored.info.start_time, restored.info.end_time), (1000, 4000))
@@ -119,7 +119,7 @@ class RunTransfer(unittest.TestCase):
             )
             downloaded = Path(destination.download_artifacts(imported, "nested/sample.txt"))
             self.assertEqual(downloaded.read_text(), "artifact content")
-            self.assertEqual(transfer.import_run(archive, destination_uri), imported)
+            self.assertEqual(transfer.import_run(archive, destination_uri, write=True), imported)
             self.assertEqual(len(destination.search_runs([restored.info.experiment_id])), 1)
             tampered = root / "tampered.zip"
             with ZipFile(archive) as original, ZipFile(tampered, "w", ZIP_DEFLATED) as edited:
@@ -129,7 +129,7 @@ class RunTransfer(unittest.TestCase):
                         content = b"tampered content"
                     edited.writestr(entry, content)
             with self.assertRaisesRegex(ValueError, "empreintes"):
-                transfer.import_run(tampered, destination_uri)
+                transfer.import_run(tampered, destination_uri, write=True)
             # Liberer les fichiers SQLite avant suppression du dossier sous Windows.
             source._tracking_client.store.engine.dispose()
             destination._tracking_client.store.engine.dispose()

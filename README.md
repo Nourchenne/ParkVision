@@ -6,13 +6,34 @@ parking count. The repository contains YOLO training and validation tools,
 day-separated PKLot data preparation with DVC, MLflow run exports, and a
 lightweight model-quality gate.
 
+Registry packaging, policy-based champion selection, and rollback are covered
+in [the Phase 2 workflow](docs/mlops_phase2.md). Automatic promotion is disabled
+by default and requires explicit policy values and a shared writer lock.
+
+## Model Registry — Phase 2
+
+The [teammate registration guide](docs/model_registry_teammate_guide.md) walks
+through read-only import inspection, validation evidence, candidate preparation,
+and explicit registration in the [ParkVision DagsHub Model Registry](https://dagshub.com/Nourchenne/ParkVision.mlflow).
+Registry state verified on 2026-11-20:
+- Version 2: YOLOv8s (B), selected as the initial `champion`.
+- Version 3: YOLO26n (C), with a new verified evaluation.
+- Version 1: historical YOLO26n evaluation, preserved unchanged.
+
+Use `models:/ParkVision-Detector@champion` to resolve the selected model.
+B and C have verified inference and archived validation evidence.
+A remains an MLflow baseline because its counting MAEs exceed the quality thresholds.
+The initial champion was selected manually with an MLflow audit record.
+Automatic promotion remains disabled; no application deployment has been performed.
+Coordinate a single registry writer until all machines share a verified lock strategy.
+
 The recorded Experiment C results are **validation** results. The held-out test
 split is reserved for final evaluation after model selection.
 
 ## Requirements
 
 Run commands from the repository root. For the quality gate and its tests,
-install only PyYAML (Python 3.12 is used in CI):
+install only PyYAML (CI tests Python 3.10 and 3.12):
 
 ```powershell
 python -m pip install PyYAML==6.0.3
@@ -81,11 +102,14 @@ ruff format --check src/analysis/validate_model.py tests/test_validate_model.py
 git diff --check
 ```
 
-The MLflow transfer test in `test_training_tools.py` needs MLflow and is not
-part of lightweight CI. [GitHub Actions](.github/workflows/ci.yml) runs on
-pull requests targeting `main` and pushes to `main`, using synthetic fixtures
-without a GPU, dataset, checkpoint, or tracking server.
+The full local and mocked test suite runs with: python -m pytest tests/ -q.
 
+Install the pinned test dependencies listed in .github/workflows/ci.yml.
+CI runs on pull requests targeting main and pushes to main,
+using Python 3.10 and 3.12 with MLflow 3.17.2.
+Tests require no GPU, dataset, trained checkpoint, or remote tracking server.
+The transfer test uses temporary local MLflow storage.
+These checks do not deploy models or change the champion alias.
 
 ## Jalon de mi-parcours
 

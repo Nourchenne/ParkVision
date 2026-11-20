@@ -127,19 +127,32 @@ Laisser le serveur MLflow Windows ouvert sur http://127.0.0.1:5000.
 Dans une seconde fenêtre PowerShell :
 
 ```powershell
-.\.venv\Scripts\python.exe src/utils/transfer_run.py import "$env:USERPROFILE\Downloads\NOM_EXACT_IMPRIME.zip"
+.\.venv\Scripts\python.exe src/utils/transfer_run.py inspect "$env:USERPROFILE\Downloads\NOM_EXACT_IMPRIME.zip"
 ```
 
-Le run apparaît dans l'expérience de même nom, vue **Model training**.
-Son nouvel identifiant local est lié à l'original par le tag
-`parkvision.source_run_id`. Une seconde importation du même run déjà importé
-avec succès est ignorée. L'import contrôle les empreintes de tous les fichiers.
-Les imports interrompus restent visibles comme runs incomplets/en échec ; une
-nouvelle tentative crée un autre run et ne réutilise pas leur historique partiel.
+`inspect` est en lecture seule : il valide le ZIP local, recherche toutes les
+pages de runs ayant le même identifiant source et vérifie les paramètres,
+métriques et empreintes des artefacts d'un import marqué terminé. Il peut donc
+télécharger les artefacts distants, sans les modifier. `import` sans option est
+également en lecture seule. Les identifiants de connexion sont chargés depuis
+le `.env` à la racine du projet via `python-dotenv`, sans être affichés.
 
-Les poids sont pour l'instant des artifacts. La création d'un modèle MLflow
-avec signature, l'export ONNX et l'enregistrement dans le Model Registry seront
-faits après sélection du modèle. Ce transfert ne migre pas un Model Registry.
+Après inspection, une écriture nécessite `import ... --write`. Un import terminé
+et vérifié pour le même identifiant source **et** la même empreinte ZIP est
+réutilisé. Un import incomplet bloque la création d'un nouveau run. Pour
+reprendre explicitement celui-ci, utiliser `import ... --write --resume-run-id ID` :
+les éléments déjà présents sont vérifiés, seuls les éléments manquants sont
+envoyés, puis le run est finalisé. Un élément présent mais différent bloque la
+reprise. Les écritures échouées ne sont pas retentées automatiquement ; relancer
+`inspect` avant toute nouvelle action. Les opérations réseau ont des délais
+bornés et seules les lectures temporaires sont retentées au maximum trois fois.
+Un nouveau run créé avec `--write` apparaît dans l'expérience de même nom,
+vue **Model training**.
+
+Les poids transférés restent des artifacts. L'enregistrement d'un modèle
+MLflow séparé dans le Model Registry est décrit dans le
+[guide Phase 2](model_registry_teammate_guide.md). Ce transfert ne migre pas
+un Model Registry et ne réalise pas d'export ONNX.
 
 ## 6. Entraînement complet (après validation de l'essai ET de l'import)
 

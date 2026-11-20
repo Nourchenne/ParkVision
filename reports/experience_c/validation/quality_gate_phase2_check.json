@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "checks": {
+    "map50_95": true,
+    "mae_empty": true,
+    "mae_occupied": true,
+    "exact_count_accuracy": true
+  },
+  "metrics": {
+    "map50_95": 0.9186102581691531,
+    "mae_empty": 0.2652,
+    "mae_occupied": 0.1496,
+    "exact_count_accuracy": 0.7612
+  },
+  "images_evaluated": 2500,
+  "provenance": {
+    "checkpoint": {
+      "sha256": "efde509277dc0ea69f3077356c81b86839bd3caf19343ce58ca562fbe097c69a",
+      "independently_verified": true
+    },
+    "dataset_manifest": {
+      "sha256": "b51c7072a9276eff8c69d9023849979efaecf1aadd458f31c2e81651ee76630a",
+      "independently_verified": true
+    }
+  }
+}
