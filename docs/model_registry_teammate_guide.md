@@ -230,9 +230,18 @@ In DagsHub's [ParkVision Model Registry](https://dagshub.com/Nourchenne/ParkVisi
 open `ParkVision-Detector` and check the exact version, architecture,
 original/imported IDs, checkpoint hash, quality status, protocol, and
 inference verification tags against your candidate. The `inspect` output
-should show the same version and tags. `champion` may remain absent;
-registration does not promote or deploy. Version 1 is the reviewed YOLO26n
-candidate; A and B receive whatever version numbers registration assigns.
+should show the same version and tags. Registration alone does not promote
+or deploy a model.
+
+State verified on 2026-11-20: version 2 (YOLOv8s, B) is the initial champion;
+version 3 contains C's new verified evaluation, and version 1 preserves C's
+historical evaluation. A remains an MLflow baseline because it fails the
+counting MAE thresholds. Future version numbers must be read from the Registry.
+
+B and C's current packaging runs contain six verified files under
+`validation_evidence/`. Automatic promotion remains disabled.
+The initial champion decision is recorded in MLflow run
+`f6bd457accf54b5291f31395811f3e7b`.
 
 ## Troubleshooting and review checklist
 

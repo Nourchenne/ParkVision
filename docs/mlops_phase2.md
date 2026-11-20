@@ -3,8 +3,10 @@
 Phase 2 uses `https://dagshub.com/Nourchenne/ParkVision.mlflow` and the
 registered name `ParkVision-Detector`. It does not train, deploy, or modify
 imported experiment runs. `configs/registry_policy.yaml` disables automatic
-promotion by default. Experiment C's YOLO26n is registered as Version 1;
-no champion alias is assigned. See the
+promotion by default. As verified on 2026-11-20, version 2 (YOLOv8s, B)
+is the initial champion, selected manually with an audit record. Version 3
+contains C's new evaluation; historical version 1 remains unchanged.
+This selection does not deploy an application. See the
 [teammate guide](model_registry_teammate_guide.md) for the current workflow.
 
 ## Candidate evidence

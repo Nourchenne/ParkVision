@@ -15,10 +15,17 @@ by default and requires explicit policy values and a shared writer lock.
 The [teammate registration guide](docs/model_registry_teammate_guide.md) walks
 through read-only import inspection, validation evidence, candidate preparation,
 and explicit registration in the [ParkVision DagsHub Model Registry](https://dagshub.com/Nourchenne/ParkVision.mlflow).
-YOLO26n is registered as `ParkVision-Detector` Version 1. Registration creates
-a candidate version; it does not assign the `champion` alias or deploy it.
-No champion is currently assigned. Coordinate a single registry writer until
-all machines share a verified lock strategy.
+Registry state verified on 2026-11-20:
+- Version 2: YOLOv8s (B), selected as the initial `champion`.
+- Version 3: YOLO26n (C), with a new verified evaluation.
+- Version 1: historical YOLO26n evaluation, preserved unchanged.
+
+Use `models:/ParkVision-Detector@champion` to resolve the selected model.
+B and C have verified inference and archived validation evidence.
+A remains an MLflow baseline because its counting MAEs exceed the quality thresholds.
+The initial champion was selected manually with an MLflow audit record.
+Automatic promotion remains disabled; no application deployment has been performed.
+Coordinate a single registry writer until all machines share a verified lock strategy.
 
 The recorded Experiment C results are **validation** results. The held-out test
 split is reserved for final evaluation after model selection.
