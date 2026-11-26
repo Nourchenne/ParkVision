@@ -4,3 +4,5 @@ python-dotenv==1.2.2
 dvc==3.67.1
 PyYAML==6.0.3
 pytest==9.2.0
+onnx==1.17.0
+onnxruntime==1.19.0
