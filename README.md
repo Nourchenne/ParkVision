@@ -10,6 +10,43 @@ Registry packaging, policy-based champion selection, and rollback are covered
 in [the Phase 2 workflow](docs/mlops_phase2.md). Automatic promotion is disabled
 by default and requires explicit policy values and a shared writer lock.
 
+## Model serving and video MVP — Phase 3
+
+Local, read-only serving of the registered `champion` with a verified persistent
+model cache. The API resolves the alias to an exact version at startup, performs
+no registry writes, and reuses a verified cached package instead of repeatedly
+downloading artifacts. See the [serving guide](docs/mlops_phase3_fastapi.md) for
+configuration, verification, recovery, security limits, and Docker plans, and
+the [video guide](docs/mlops_phase3_video_mvp.md) for MP4/YouTube sessions and
+the React application.
+
+```powershell
+# From the repository root; use this checkout's venv explicitly
+.\venv\Scripts\python.exe -m pip install -r requirements-serving.txt
+.\venv\Scripts\python.exe -m uvicorn src.api.main:app `
+  --host 127.0.0.1 --port 8000 --workers 1
+```
+
+Copy `.env.example` to the ignored `.env` and use your own DagsHub username and
+access token there. In a second terminal, run the React frontend:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173/`. Vite proxies REST, WebSocket, source playback,
+and preview requests to FastAPI on `127.0.0.1:8000`. Endpoints include `/health`,
+`/ready`, `/model-info`, `/predict`, `/video/upload`, and `/video/youtube`. The local reload endpoint
+`/internal/model/reload` is opt-in via `PARKVISION_MODEL_RELOAD_ENABLED=true`
+and always requires loopback access. The verified cache defaults to
+`~/.parkvision/model-cache` and can be moved with `PARKVISION_MODEL_CACHE_DIR`
+(for a future Docker volume).
+
+Overlays are sampled per-frame estimates with a timestamped preview fallback;
+they are not persistent parking-slot IDs or vehicle tracking.
+
 ## Model Registry — Phase 2
 
 The [teammate registration guide](docs/model_registry_teammate_guide.md) walks
@@ -102,7 +139,9 @@ ruff format --check src/analysis/validate_model.py tests/test_validate_model.py
 git diff --check
 ```
 
-The full local and mocked test suite runs with: python -m pytest tests/ -q.
+The full local and mocked test suite runs with
+`.\venv\Scripts\python.exe -m pytest tests/ -q` (the unqualified `python` here is
+a separate Conda environment without the serving dependencies).
 
 Install the pinned test dependencies listed in .github/workflows/ci.yml.
 CI runs on pull requests targeting main and pushes to main,
