@@ -7,6 +7,7 @@ services:
       - .env
     environment:
       PARKVISION_DOCKER_BRIDGE_TRUSTED: "true"
+      PARKVISION_MODEL_RELOAD_ENABLED: "true"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
