@@ -1,5 +1,5 @@
 """Local-only REST and WebSocket routes for bounded video sessions."""
-
+import os
 import asyncio
 import ipaddress
 from typing import Annotated
@@ -44,9 +44,19 @@ def _loopback(value: str | None) -> bool:
     if value.lower() == "localhost":
         return True
     try:
-        return ipaddress.ip_address(value).is_loopback
+        ip = ipaddress.ip_address(value)
     except ValueError:
         return False
+    if ip.is_loopback:
+        return True
+    # Sous docker-compose, Docker réécrit l'adresse source (NAT) même quand
+    # le port publié est lié uniquement à 127.0.0.1 sur l'hôte. La vraie
+    # garantie "local uniquement" est alors le binding du port, pas l'IP
+    # pair vue par le conteneur. Ce drapeau n'est activé que dans
+    # docker-compose.yml (jamais en exécution "nue").
+    if os.environ.get("PARKVISION_DOCKER_BRIDGE_TRUSTED") == "true":
+        return ip.is_private
+    return False
 
 
 def _allowed_origin(origin: str, host_header: str, scheme: str) -> bool:

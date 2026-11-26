@@ -2,8 +2,7 @@
 
 import time
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
-
+from datetime import datetime, timedelta, timezone
 import pytest
 
 from src.api.config import Settings

@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    env_file:
+      - .env
+    environment:
+      PARKVISION_DOCKER_BRIDGE_TRUSTED: "true"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - parkvision-model-cache:/root/.parkvision
+    networks:
+      - parkvision-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      - backend
+    networks:
+      - parkvision-net
+
+networks:
+  parkvision-net:
+
+volumes:
+  parkvision-model-cache:
