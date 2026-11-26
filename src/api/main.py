@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import io
 import logging
 import tempfile
 import time
@@ -11,12 +12,12 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageDraw, UnidentifiedImageError
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from src.api.config import Settings, get_settings
-from src.api.model_service import ModelService, load_champion
+from src.api.model_service import CLASS_NAMES, ModelService, load_champion
 from src.api.schemas import Prediction
 from src.api.video_routes import create_video_router, local_http_allowed
 from src.api.video_sessions import VideoSessionManager
@@ -28,6 +29,68 @@ CHUNK_SIZE = 1024 * 1024
 
 def error(status: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=status, detail={"code": code, "message": message})
+
+
+async def _receive_validated_image(file: UploadFile, settings: Settings) -> Path:
+    """Stream an upload to disk and strictly validate it; caller owns the returned path."""
+    if file.content_type not in ("image/jpeg", "image/png"):
+        raise error(400, "invalid_image", "Only JPEG and PNG images are accepted")
+    path = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=settings.temp_dir, suffix=".upload", delete=False) as temp:
+            path = Path(temp.name)
+            size = 0
+            while chunk := await file.read(CHUNK_SIZE):
+                size += len(chunk)
+                if size > settings.max_upload_bytes:
+                    raise error(413, "upload_too_large", "Image exceeds the upload limit")
+                temp.write(chunk)
+        if size == 0:
+            raise error(400, "invalid_image", "Image is empty")
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", Image.DecompressionBombWarning)
+                with Image.open(path) as image:
+                    image.verify()
+                    image_format = image.format
+                with Image.open(path) as image:
+                    image.load()
+        except (UnidentifiedImageError, OSError, ValueError,
+                Image.DecompressionBombWarning, Image.DecompressionBombError):
+            raise error(400, "invalid_image", "Image is corrupt or unsupported") from None
+        if image_format not in ("JPEG", "PNG"):
+            raise error(400, "invalid_image", "Only JPEG and PNG images are accepted")
+        expected = "JPEG" if file.content_type == "image/jpeg" else "PNG"
+        if image_format != expected:
+            raise error(400, "invalid_image", "Image content does not match its media type")
+        new_path = path.with_suffix(".jpg" if image_format == "JPEG" else ".png")
+        path.rename(new_path)
+        return new_path
+    except Exception:
+        if path is not None:
+            path.unlink(missing_ok=True)
+        raise
+
+
+_DETECTION_COLORS = {"space-empty": (34, 197, 94), "space-occupied": (239, 68, 68)}
+
+
+def _draw_detections(path: Path, prediction: Prediction) -> bytes:
+    """Render bounding boxes and labels over the source image; returns encoded bytes."""
+    with Image.open(path) as source:
+        image = source.convert("RGB")
+    draw = ImageDraw.Draw(image)
+    for detection in prediction.detections:
+        color = _DETECTION_COLORS.get(detection.class_name, (59, 130, 246))
+        x0, y0, x1, y1 = detection.bbox
+        draw.rectangle([x0, y0, x1, y1], outline=color, width=3)
+        label = f"{detection.class_name} {detection.confidence:.2f}"
+        text_y = max(y0 - 14, 0)
+        draw.rectangle([x0, text_y, x0 + 7 * len(label), text_y + 14], fill=color)
+        draw.text((x0 + 2, text_y + 1), label, fill=(255, 255, 255))
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG" if path.suffix == ".jpg" else "PNG")
+    return buffer.getvalue()
 
 
 def create_app(settings: Settings | None = None, loader=load_champion,
@@ -83,7 +146,17 @@ def create_app(settings: Settings | None = None, loader=load_champion,
 
     @app.get("/health")
     def health():
-        return {"status": "ok"}
+        service = app.state.model_service
+        try:
+            import torch
+            gpu_available = bool(torch.cuda.is_available())
+        except Exception:  # noqa: BLE001 - GPU detection must never break liveness
+            gpu_available = False
+        return {
+            "status": "ok",
+            "gpu_available": gpu_available,
+            "model_version": service.info.version if service is not None else None,
+        }
 
     @app.get("/ready")
     def ready():
@@ -98,51 +171,59 @@ def create_app(settings: Settings | None = None, loader=load_champion,
             return {"name": settings.model_name, "version": None, "architecture": None,
                     "source_run_id": None, "model_uri": None, "alias": settings.model_alias,
                     "status": "unavailable"}
-        return vars(service.info)
+        info = service.info
+        return {"name": info.name, "version": info.version, "architecture": info.architecture,
+                "source_run_id": info.source_run_id, "model_uri": info.model_uri,
+                "alias": info.alias, "status": info.status}
+
+    @app.get("/model/metadata")
+    def model_metadata():
+        service = app.state.model_service
+        if service is None:
+            raise error(503, "model_unavailable", "Model is unavailable")
+        info = service.info
+        return {
+            "name": info.name,
+            "version": info.version,
+            "architecture": info.architecture,
+            "classes": list(CLASS_NAMES),
+            "validation_metrics": info.validation_metrics,
+        }
 
     @app.post("/predict", response_model=Prediction)
     async def predict(file: Annotated[UploadFile, File()]):
         service: ModelService | None = app.state.model_service
         if service is None:
             raise error(503, "model_unavailable", "Model is unavailable")
-        if file.content_type not in ("image/jpeg", "image/png"):
-            raise error(400, "invalid_image", "Only JPEG and PNG images are accepted")
         path = None
         try:
-            with tempfile.NamedTemporaryFile(dir=settings.temp_dir, suffix=".upload", delete=False) as temp:
-                path = Path(temp.name)
-                size = 0
-                while chunk := await file.read(CHUNK_SIZE):
-                    size += len(chunk)
-                    if size > settings.max_upload_bytes:
-                        raise error(413, "upload_too_large", "Image exceeds the upload limit")
-                    temp.write(chunk)
-            if size == 0:
-                raise error(400, "invalid_image", "Image is empty")
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("error", Image.DecompressionBombWarning)
-                    with Image.open(path) as image:
-                        image.verify()
-                        image_format = image.format
-                    with Image.open(path) as image:
-                        image.load()
-            except (UnidentifiedImageError, OSError, ValueError,
-                    Image.DecompressionBombWarning, Image.DecompressionBombError):
-                raise error(400, "invalid_image", "Image is corrupt or unsupported") from None
-            if image_format not in ("JPEG", "PNG"):
-                raise error(400, "invalid_image", "Only JPEG and PNG images are accepted")
-            expected = "JPEG" if file.content_type == "image/jpeg" else "PNG"
-            if image_format != expected:
-                raise error(400, "invalid_image", "Image content does not match its media type")
-            new_path = path.with_suffix(".jpg" if image_format == "JPEG" else ".png")
-            path.rename(new_path)
-            path = new_path
+            path = await _receive_validated_image(file, settings)
             try:
                 return await run_in_threadpool(service.predict, path)
             except Exception:  # noqa: BLE001 - sanitize all model failures
                 logger.error("Model inference failed")
                 raise error(500, "inference_failed", "Model inference failed") from None
+        finally:
+            await file.close()
+            if path is not None:
+                path.unlink(missing_ok=True)
+
+    @app.post("/predict/visualize")
+    async def predict_visualize(file: Annotated[UploadFile, File()]):
+        service: ModelService | None = app.state.model_service
+        if service is None:
+            raise error(503, "model_unavailable", "Model is unavailable")
+        path = None
+        try:
+            path = await _receive_validated_image(file, settings)
+            try:
+                prediction = await run_in_threadpool(service.predict, path)
+            except Exception:  # noqa: BLE001 - sanitize all model failures
+                logger.error("Model inference failed")
+                raise error(500, "inference_failed", "Model inference failed") from None
+            annotated = await run_in_threadpool(_draw_detections, path, prediction)
+            media_type = "image/jpeg" if path.suffix == ".jpg" else "image/png"
+            return Response(content=annotated, media_type=media_type)
         finally:
             await file.close()
             if path is not None:

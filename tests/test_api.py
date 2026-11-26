@@ -98,7 +98,7 @@ def upload(client, fmt="JPEG", data=None):
 
 def test_health_ready_info_and_reuse(loaded):
     client, model, directory = loaded
-    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/health").json() == {"status": "ok", "gpu_available": False, "model_version": "7"}
     assert client.get("/ready").json() == {"status": "ready"}
     info = client.get("/model-info").json()
     assert info == {"name": "ParkVision-Detector", "version": "7", "architecture": "yolov8s",
@@ -212,3 +212,91 @@ def test_loader_pins_alias_version_and_only_reads(monkeypatch, tmp_path):
     assert len([call for call in calls if call[0] == "alias"]) == 1
     assert not any(call[0] in ("set_alias", "create_model_version", "set_tag") for call in calls)
     assert {item.name for item in tmp_path.iterdir()} == {"code"}
+
+
+
+def test_model_metadata_reports_classes_and_metrics(loaded):
+    client, _model, _directory = loaded
+    body = client.get("/model/metadata").json()
+    assert body == {"name": "ParkVision-Detector", "version": "7", "architecture": "yolov8s",
+                    "classes": ["space-empty", "space-occupied"], "validation_metrics": {}}
+
+
+def test_model_metadata_unavailable(tmp_path):
+    app = create_app(settings(tmp_path), lambda _: (_ for _ in ()).throw(RuntimeError("secret")))
+    with TestClient(app) as client:
+        response = client.get("/model/metadata")
+        assert response.status_code == 503
+        assert response.json()["detail"]["code"] == "model_unavailable"
+
+
+def test_predict_visualize_returns_annotated_image(loaded):
+    client, model, directory = loaded
+    response = client.post("/predict/visualize",
+                           files={"file": ("parking.jpg", image_bytes("JPEG"), "image/jpeg")})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    with Image.open(io.BytesIO(response.content)) as annotated:
+        annotated.load()
+        assert annotated.size == (32, 24)
+    assert len(model.calls) == 1
+    assert list(directory.iterdir()) == []
+
+
+def test_predict_visualize_rejects_invalid_image(loaded):
+    client, model, directory = loaded
+    response = client.post("/predict/visualize",
+                           files={"file": ("x.jpg", b"not an image", "image/jpeg")})
+    assert response.status_code == 400
+    assert model.calls == []
+    assert list(directory.iterdir()) == []
+
+
+def test_predict_visualize_unavailable(tmp_path):
+    app = create_app(settings(tmp_path), lambda _: (_ for _ in ()).throw(RuntimeError("secret")))
+    with TestClient(app) as client:
+        response = client.post("/predict/visualize",
+                               files={"file": ("x.jpg", image_bytes("JPEG"), "image/jpeg")})
+        assert response.status_code == 503
+
+
+def test_loader_reads_validation_metrics_from_the_run(monkeypatch, tmp_path):
+    import mlflow
+
+    version = SimpleNamespace(version="7", run_id="a" * 32,
+                              tags={"parkvision.inference_verified": "true",
+                                    "parkvision.architecture": "yolov8s"})
+    run = SimpleNamespace(data=SimpleNamespace(metrics={
+        "best_val/metrics/mAP50(B)": 0.91, "best_val/metrics/precision(B)": 0.88,
+        "train/box_loss": 0.4,
+    }))
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        def get_model_version_by_alias(self, name, alias):
+            return version
+
+        def get_run(self, run_id):
+            assert run_id == version.run_id
+            return run
+
+    class PyFunc(FakeModel):
+        metadata = SimpleNamespace(signature=SimpleNamespace(inputs=SimpleNamespace(
+            inputs=[SimpleNamespace(name="image_path", type="DataType.string")])))
+
+    monkeypatch.setattr(mlflow, "set_tracking_uri", lambda uri: None)
+    monkeypatch.setattr(mlflow, "set_registry_uri", lambda uri: None)
+    monkeypatch.setattr("src.api.model_service._obtain_package", lambda *_: tmp_path)
+    bundled = tmp_path / "code" / "src" / "models"
+    bundled.mkdir(parents=True)
+    (bundled / "registry_adapter.py").write_text("", encoding="utf-8")
+    instance = load_champion(
+        settings(tmp_path), client_factory=Client,
+        artifact_downloader=lambda **_: pytest.fail("package should be supplied by cache"),
+        model_loader=lambda uri: PyFunc(),
+    )
+    assert instance.info.validation_metrics == {
+        "metrics/mAP50(B)": 0.91, "metrics/precision(B)": 0.88,
+    }

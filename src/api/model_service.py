@@ -9,7 +9,7 @@ import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -46,6 +46,7 @@ class ModelInfo:
     model_uri: str
     alias: str
     status: str = "loaded"
+    validation_metrics: dict = field(default_factory=dict)
 
 
 class ModelService:
@@ -212,9 +213,24 @@ def load_champion(settings: Settings, client_factory=None, model_loader=None,
             signature.inputs.inputs[0].name != "image_path" or
             str(signature.inputs.inputs[0].type) != "DataType.string"):
         raise ValueError("registered model has an incompatible input signature")
+    validation_metrics: dict[str, float] = {}
+    try:
+        from mlflow import MlflowClient
+        metrics_client = (client_factory or MlflowClient)(tracking_uri=settings.tracking_uri,
+                                                           registry_uri=settings.tracking_uri)
+        with _stage("validation_metrics_fetch", version_id):
+            run_metrics = metrics_client.get_run(version.run_id).data.metrics
+        validation_metrics = {
+            key[len("best_val/"):]: value
+            for key, value in run_metrics.items() if key.startswith("best_val/")
+        }
+    except Exception:  # noqa: BLE001 - metrics are informational, never block serving
+        logger.warning("validation_metrics_unavailable version=%s", version_id)
+
     info = ModelInfo(name=settings.model_name, version=version_id,
                      architecture=tags.get("parkvision.architecture"),
-                     source_run_id=version.run_id, model_uri=uri, alias=settings.model_alias)
+                     source_run_id=version.run_id, model_uri=uri, alias=settings.model_alias,
+                     validation_metrics=validation_metrics)
     service = ModelService(model, info)
     # The registered PyFunc signature declares inputs only; probe its output locally.
     with _stage("inference_probe", version_id):

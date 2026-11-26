@@ -285,7 +285,7 @@ def test_bytecode_cache_is_not_part_of_the_manifest(tmp_path):
     verify_model_package(entry, identity())
     manifest = json.loads((entry / MANIFEST_FILE).read_text(encoding="utf-8"))
     assert not any("__pycache__" in name for name in manifest["files"])
-    
+
 def test_cache_miss_downloads_verifies_and_publishes_atomically(tmp_path):
     package = make_package(tmp_path / "remote")
     service, calls = load_with(tmp_path, package)
@@ -461,7 +461,7 @@ def test_readiness_failure_and_recovery_preserve_contracts(tmp_path):
     app = create_app(settings_for(tmp_path, model_reload_min_interval_seconds=0),
                      loader, local_check=lambda _: True)
     with TestClient(app) as client:
-        assert client.get("/health").json() == {"status": "ok"}
+        assert client.get("/health").json() == {"status": "ok", "gpu_available": False, "model_version": None}
         assert client.get("/ready").status_code == 503
         assert client.get("/model-info").json()["status"] == "unavailable"
         assert client.post("/internal/model/reload").status_code == 503
