@@ -175,7 +175,7 @@ def test_worker_error_is_sanitized_and_cleans_source(tmp_path):
 
 
 def test_expired_session_is_no_longer_reconnectable(tmp_path):
-    current = [datetime.now(UTC)]
+    current = [datetime.now(timezone.utc)]
     manager = VideoSessionManager(
         object(), settings(tmp_path, video_session_ttl_seconds=1),
         analyzer=successful_analyzer, storage_root=tmp_path / "store",

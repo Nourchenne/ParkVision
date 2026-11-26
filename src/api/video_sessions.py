@@ -39,8 +39,8 @@ class _Session:
     reserved_bytes: int
     status: str = "queued"
     revision: int = 0
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: VideoMetadata | None = None
     results: list[FrameResult] = field(default_factory=list)
     preview: bytes | None = None
@@ -83,7 +83,7 @@ class VideoSessionManager:
         youtube_source=None,
         storage_root: Path | None = None,
         monotonic: Callable[[], float] = time.monotonic,
-        now: Callable[[], datetime] = lambda: datetime.now(UTC),
+        now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ):
         self.model_service = model_service
         self.settings = settings
