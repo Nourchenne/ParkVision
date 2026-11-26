@@ -151,7 +151,7 @@ def create_app(settings: Settings | None = None, loader=load_champion,
     app.include_router(create_video_router(lambda: app.state.video_manager, settings))
 
     reload_lock = asyncio.Lock()
-    reload_state = {"last": 0.0, "failures": 0}
+    reload_state = {"last": None, "failures": 0}
 
     @app.post("/internal/model/reload")
     async def reload_model(request: Request):
@@ -163,7 +163,8 @@ def create_app(settings: Settings | None = None, loader=load_champion,
         async with reload_lock:
             now = time.monotonic()
             interval = settings.model_reload_min_interval_seconds
-            if (now - reload_state["last"] < interval or
+            last = reload_state["last"]
+            if ((last is not None and now - last < interval) or
                     reload_state["failures"] >= settings.model_reload_max_failures):
                 raise error(429, "reload_throttled", "Model reload is throttled")
             reload_state["last"] = now

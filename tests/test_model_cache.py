@@ -275,6 +275,17 @@ def test_import_candidate_copies_without_touching_source(tmp_path):
     assert (cache / "staging").exists()
 
 
+def test_bytecode_cache_is_not_part_of_the_manifest(tmp_path):
+    package = make_package(tmp_path / "candidate")
+    cache = tmp_path / "cache"
+    entry = import_candidate(package, identity(), cache)
+    pycache = entry / "code" / "src" / "models" / "__pycache__"
+    pycache.mkdir()
+    (pycache / "registry_adapter.cpython-310.pyc").write_bytes(b"bytecode")
+    verify_model_package(entry, identity())
+    manifest = json.loads((entry / MANIFEST_FILE).read_text(encoding="utf-8"))
+    assert not any("__pycache__" in name for name in manifest["files"])
+    
 def test_cache_miss_downloads_verifies_and_publishes_atomically(tmp_path):
     package = make_package(tmp_path / "remote")
     service, calls = load_with(tmp_path, package)

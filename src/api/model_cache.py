@@ -327,7 +327,8 @@ def verify_model_package(package: Path, identity: ModelIdentity) -> None:
             raise CacheVerificationError("manifest_invalid", "cache manifest is invalid")
         actual = {
             str(path.relative_to(package.resolve())).replace(os.sep, "/")
-            for path in package.rglob("*") if path.is_file() and not path.is_symlink()
+            for path in package.rglob("*")
+            if path.is_file() and not path.is_symlink() and not _is_bytecode_cache(path)
         } - {MANIFEST_FILE, IDENTITY_FILE}
         if set(entries) != actual:
             raise CacheVerificationError("manifest_mismatch", "cache file set differs from its manifest")
@@ -335,14 +336,16 @@ def verify_model_package(package: Path, identity: ModelIdentity) -> None:
             if _sha256(_safe_file(package, name)) != digest:
                 raise CacheVerificationError("manifest_mismatch", "cached file hash differs from its manifest")
 
-
+def _is_bytecode_cache(path: Path) -> bool:
+    """Python writes __pycache__/*.pyc next to loaded code; they are not part of the model package."""
+    return "__pycache__" in path.parts or path.suffix == ".pyc"
 def _write_metadata(package: Path, identity: ModelIdentity) -> None:
     (package / IDENTITY_FILE).write_text(
         json.dumps(identity.as_dict(), sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
     files = {
         str(path.relative_to(package.resolve())).replace(os.sep, "/"): _sha256(path)
         for path in package.rglob("*") if path.is_file() and not path.is_symlink()
-        and path.name not in {IDENTITY_FILE, MANIFEST_FILE}
+        and path.name not in {IDENTITY_FILE, MANIFEST_FILE} and not _is_bytecode_cache(path)
     }
     (package / MANIFEST_FILE).write_text(
         json.dumps({"files": files}, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
