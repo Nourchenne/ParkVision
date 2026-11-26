@@ -6,3 +6,4 @@ PyYAML==6.0.3
 pytest==9.2.0
 onnx==1.17.0
 onnxruntime==1.19.0
+prefect==3.8.8
