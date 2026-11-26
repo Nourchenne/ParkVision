@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import dataclasses
 import io
 import logging
 import tempfile
@@ -231,8 +232,13 @@ def create_app(settings: Settings | None = None, loader=load_champion,
 
     app.include_router(create_video_router(lambda: app.state.video_manager, settings))
 
+    @dataclasses.dataclass
+    class _ReloadState:
+        last: float | None = None
+        failures: int = 0
+
     reload_lock = asyncio.Lock()
-    reload_state = {"last": None, "failures": 0}
+    reload_state = _ReloadState()
 
     @app.post("/internal/model/reload")
     async def reload_model(request: Request):
@@ -244,18 +250,18 @@ def create_app(settings: Settings | None = None, loader=load_champion,
         async with reload_lock:
             now = time.monotonic()
             interval = settings.model_reload_min_interval_seconds
-            last = reload_state["last"]
+            last = reload_state.last
             if ((last is not None and now - last < interval) or
-                    reload_state["failures"] >= settings.model_reload_max_failures):
+                    reload_state.failures >= settings.model_reload_max_failures):
                 raise error(429, "reload_throttled", "Model reload is throttled")
-            reload_state["last"] = now
+            reload_state.last = now
             try:
                 service = await run_in_threadpool(loader, settings)
             except Exception as exc:  # noqa: BLE001 - never expose remote details
-                reload_state["failures"] += 1
+                reload_state.failures += 1
                 logger.error("Model reload failed (%s)", type(exc).__name__)
                 raise error(503, "model_unavailable", "Model is unavailable")
-            reload_state["failures"] = 0
+            reload_state.failures = 0
             app.state.model_service = service
             manager = app.state.video_manager
             if manager is not None and hasattr(manager, "set_model_service"):
