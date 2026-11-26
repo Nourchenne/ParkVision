@@ -147,7 +147,7 @@ def _pid_alive(pid: int) -> bool | None:
 
         process_query_limited_information = 0x1000
         still_active = 259
-        kernel32 = ctypes.windll.kernel32
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
         if not handle:
             return False
