@@ -6,11 +6,13 @@ export function StatusPill({ state, label }: { state: 'good' | 'bad' | 'wait' | 
   return <span className={`status-pill status-${state}`}><span className="status-dot" />{label}</span>;
 }
 
-export function Panel({ title, eyebrow, action, children, className = '' }: {
+export function Panel({ title, eyebrow, action, children, className = '', tone = 'default' }: {
   title: string; eyebrow?: string; action?: ReactNode; children: ReactNode; className?: string;
+  tone?: 'default' | 'red' | 'blue' | 'dark';
 }) {
-  return <section className={`panel ${className}`}>
+  return <section className={`panel panel-tone-${tone} ${className}`}>
     <div className="panel-head">
+      <span className="panel-bar" aria-hidden="true" />
       <div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h2>{title}</h2></div>
       {action}
     </div>

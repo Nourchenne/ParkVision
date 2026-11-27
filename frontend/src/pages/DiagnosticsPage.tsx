@@ -8,22 +8,22 @@ export function DiagnosticsPage() {
     <PageIntro eyebrow="DEVELOPER TOOLS" title="API diagnostics"
       text="Current backend connectivity, session transport, and the latest real frame response. No synthetic history is shown." />
     <div className="diagnostic-grid">
-      <Panel title="API health" eyebrow="GET /HEALTH" className="diagnostic-card">
+      <Panel title="API health" eyebrow="GET /HEALTH" className="diagnostic-card" tone="dark">
         <div className="diagnostic-value"><Activity size={24} /><StatusPill state={health === null ? 'wait' : health ? 'good' : 'bad'}
           label={health === null ? 'Checking' : health ? 'Online' : 'Offline'} /></div>
       </Panel>
-      <Panel title="Model readiness" eyebrow="GET /READY" className="diagnostic-card">
+      <Panel title="Model readiness" eyebrow="GET /READY" className="diagnostic-card" tone="dark">
         <div className="diagnostic-value">{ready ? <CircleCheck size={24} /> : <CircleAlert size={24} />}
           <StatusPill state={ready === null ? 'wait' : ready ? 'good' : 'bad'}
             label={ready === null ? 'Checking' : ready ? 'Ready' : 'Unavailable'} /></div>
       </Panel>
-      <Panel title="Live transport" eyebrow="SESSION EVENTS" className="diagnostic-card">
+      <Panel title="Live transport" eyebrow="SESSION EVENTS" className="diagnostic-card" tone="dark">
         <div className="diagnostic-value"><Radio size={24} /><StatusPill state={connection === 'live' ? 'good' :
           connection === 'polling' ? 'wait' : 'neutral'} label={connection} /></div>
       </Panel>
     </div>
     <div className="two-column">
-      <Panel title="Session connection" eyebrow="CURRENT STATE">
+      <Panel title="Session connection" eyebrow="CURRENT STATE" tone="blue">
         <div className="info-list">
           <InfoRow label="Session ID" value={<code>{sessionId ?? 'None'}</code>} />
           <InfoRow label="Status" value={session?.status ?? 'No session'} />

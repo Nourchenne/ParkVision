@@ -35,13 +35,15 @@ export function VideoPage() {
           <div className="video-under"><span><ScanLine size={17} /> Predictions follow playback and stop when the video ends.</span>
             <span>{session?.source_type === 'youtube' ? 'YouTube uses the annotated preview.' : 'MP4 boxes follow sampled timestamps.'}</span></div>
         </Panel>
-        <div className="metric-grid video-metrics">
-          <MetricCard label="Empty spaces" value={latest?.counts.empty ?? '—'} detail="Latest frame" tone="green" icon={<Square size={19} />} />
-          <MetricCard label="Occupied spaces" value={latest?.counts.occupied ?? '—'} detail="Latest frame" tone="red" icon={<Video size={19} />} />
-          <MetricCard label="Total detected" value={latest?.counts.total ?? '—'} detail="Latest frame" tone="amber" icon={<ScanLine size={19} />} />
-          <MetricCard label="Inference latency" value={latest ? `${latest.inference_time_ms.toFixed(1)} ms` : '—'}
-            detail="Latest frame" icon={<Clock3 size={19} />} />
-        </div>
+        <Panel title="Résultats" eyebrow="LIVE METRICS" tone="red" className="video-metrics">
+          <div className="metric-grid">
+            <MetricCard label="Empty spaces" value={latest?.counts.empty ?? '—'} detail="Latest frame" tone="green" icon={<Square size={19} />} />
+            <MetricCard label="Occupied spaces" value={latest?.counts.occupied ?? '—'} detail="Latest frame" tone="red" icon={<Video size={19} />} />
+            <MetricCard label="Total detected" value={latest?.counts.total ?? '—'} detail="Latest frame" tone="amber" icon={<ScanLine size={19} />} />
+            <MetricCard label="Inference latency" value={latest ? `${latest.inference_time_ms.toFixed(1)} ms` : '—'}
+              detail="Latest frame" icon={<Clock3 size={19} />} />
+          </div>
+        </Panel>
         <div className="two-column video-lower">
           <Panel title="Annotated evidence" eyebrow="LATEST ANALYZED FRAME" action={<span className="muted-small">
             {latest ? `${latest.timestamp_seconds.toFixed(2)} s` : 'Waiting for frame'}</span>}>
@@ -49,7 +51,7 @@ export function VideoPage() {
               src={api.preview(session.id, session.revision)} alt={`Annotated video frame at ${latest.timestamp_seconds.toFixed(2)} seconds`} /> :
               <div className="preview-empty"><ScanLine size={32} /><p>The first annotated frame will appear here.</p></div>}</div>
           </Panel>
-          <Panel title="Processing details" eyebrow="SESSION TELEMETRY">
+          <Panel title="Processing details" eyebrow="SESSION TELEMETRY" tone="blue">
             <div className="info-list">
               <InfoRow label="Frames processed" value={session?.frames_processed ?? 0} />
               <InfoRow label="Analyzed timestamp" value={latest ? `${latest.timestamp_seconds.toFixed(2)} s` : '—'} />
@@ -105,7 +107,7 @@ export function VideoPage() {
           <button className="button button-muted button-wide" disabled={!reconnectId.trim() || busy}
             onClick={() => reconnect(reconnectId)}><Play size={17} /> Reconnect</button>
         </Panel>
-        <Panel title="Analysis progress" eyebrow="PROCESSING STATUS">
+        <Panel title="Analysis progress" eyebrow="PROCESSING STATUS" tone="dark">
           <div className="progress-top"><strong>{session?.status ?? 'Waiting'}</strong><span>{session?.frames_processed ?? 0} frames</span></div>
           <div className="progress-track"><div style={{ width: session?.duration_seconds && latest
             ? `${Math.min(100, latest.timestamp_seconds / session.duration_seconds * 100)}%` : '0%' }} /></div>

@@ -58,3 +58,10 @@ export interface FramePage {
   limit: number;
   total: number;
 }
+
+export interface Prediction {
+  model: Pick<ModelInfo, 'name' | 'version' | 'architecture'>;
+  counts: Counts;
+  detections: Detection[];
+  inference_time_ms: number;
+}
