@@ -1,4 +1,4 @@
-import type { FramePage, ModelInfo, VideoSession } from '../types/api';
+import type { FramePage, ModelInfo, Prediction, VideoSession } from '../types/api';
 
 export class ApiError extends Error {
   constructor(message: string, public status: number, public code?: string) {
@@ -36,6 +36,28 @@ export const api = {
     const body = new FormData();
     body.append('file', file);
     return request<VideoSession>('/video/upload', { method: 'POST', body });
+  },
+  predict: (file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    return request<Prediction>('/predict', { method: 'POST', body });
+  },
+  predictVisualize: async (file: File): Promise<string> => {
+    const body = new FormData();
+    body.append('file', file);
+    let response: Response;
+    try {
+      response = await fetch('/predict/visualize', { method: 'POST', body, cache: 'no-store' });
+    } catch {
+      throw new ApiError('Cannot reach the FastAPI server.', 0, 'connection_failed');
+    }
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+      throw new ApiError(detail?.detail?.message ?? `Request failed (${response.status}).`,
+        response.status, detail?.detail?.code);
+    }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
   },
   cancel: (id: string) => request<VideoSession>(`/video/sessions/${encodeURIComponent(id)}`, {
     method: 'DELETE',

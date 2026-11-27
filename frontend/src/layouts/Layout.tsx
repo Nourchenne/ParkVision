@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Activity, ArrowLeftToLine, ArrowRightToLine, BrainCircuit, ChartNoAxesCombined,
-  CircleHelp, Menu, Radio, Video, X } from 'lucide-react';
+  CircleHelp, Image as ImageIcon, Menu, Radio, Video, X } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useApp } from '../App';
 import { StatusPill } from '../components/UI';
@@ -8,6 +8,7 @@ import { StatusPill } from '../components/UI';
 const links = [
   { to: '/', label: 'Overview', icon: ChartNoAxesCombined, end: true },
   { to: '/video', label: 'Video Analysis', icon: Video, end: false },
+  { to: '/image', label: 'Image Analysis', icon: ImageIcon, end: false },
   { to: '/model', label: 'Model Information', icon: BrainCircuit, end: false },
   { to: '/diagnostics', label: 'API Diagnostics', icon: Activity, end: false },
 ];
@@ -20,8 +21,16 @@ export function Layout() {
     {mobileOpen && <button className="mobile-scrim" aria-label="Close menu" onClick={() => setMobileOpen(false)} />}
     <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
       <div className="brand-row">
-        <span className="brand-mark"><span /><span /><span /><span /></span>
-        {!collapsed && <div className="brand-copy"><strong>ParkVision</strong><small>INTELLIGENCE PLATFORM</small></div>}
+        <span className="brand-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 8V5a1 1 0 0 1 1-1h3" />
+            <path d="M16 4h3a1 1 0 0 1 1 1v3" />
+            <path d="M20 16v3a1 1 0 0 1-1 1h-3" />
+            <path d="M8 20H5a1 1 0 0 1-1-1v-3" />
+            <circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none" />
+          </svg>
+        </span>
+        {!collapsed && <div className="brand-copy"><strong>ParkVision</strong><small>OPERATIONS CONSOLE</small></div>}
         <button className="icon-button mobile-close" aria-label="Close menu" onClick={() => setMobileOpen(false)}><X size={20} /></button>
       </div>
       <div className="nav-label">{collapsed ? '—' : 'WORKSPACE'}</div>

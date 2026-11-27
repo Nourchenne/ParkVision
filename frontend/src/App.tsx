@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './layouts/Layout';
 import { OverviewPage } from './pages/OverviewPage';
 import { VideoPage } from './pages/VideoPage';
+import { ImagePage } from './pages/ImagePage';
 import { ModelPage } from './pages/ModelPage';
 import { DiagnosticsPage } from './pages/DiagnosticsPage';
 import { useMonitoring } from './hooks/useMonitoring';
@@ -25,6 +26,7 @@ function Content() {
           <Route element={<Layout />}>
             <Route index element={<OverviewPage />} />
             <Route path="video" element={<VideoPage />} />
+            <Route path="image" element={<ImagePage />} />
             <Route path="model" element={<ModelPage />} />
             <Route path="diagnostics" element={<DiagnosticsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

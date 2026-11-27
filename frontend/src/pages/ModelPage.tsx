@@ -7,7 +7,9 @@ export function ModelPage() {
   return <>
     <PageIntro eyebrow="MODEL REGISTRY" title="Model information"
       text="The exact MLflow champion version loaded by FastAPI. This page reads serving metadata and does not change the registry." />
-    <div className="model-hero panel"><div className="model-hero-icon"><BrainCircuit size={32} /></div>
+    <div className="model-hero">
+      <img src="/parking/parking-rowcars.jpg" alt="Parking" />
+      <div className="model-hero-icon"><BrainCircuit size={28} /></div>
       <div className="model-hero-text"><p className="eyebrow">ACTIVE CHAMPION</p>
         <h2>{model?.name ?? 'Model details unavailable'}</h2>
         <p>{model?.architecture ?? 'Architecture unavailable'} · alias {model?.alias ?? '—'}</p></div>
@@ -26,7 +28,7 @@ export function ModelPage() {
           <div className="empty-panel"><CircleAlert size={30} /><strong>Metadata unavailable</strong>
             <p>Check the API connection and model startup logs.</p></div>}
       </Panel>
-      <Panel title="Serving checks" eyebrow="READINESS">
+      <Panel title="Serving checks" eyebrow="READINESS" tone="dark">
         <div className="info-list">
           <InfoRow label="FastAPI health" value={health === null ? 'Checking' : health ? 'Online' : 'Offline'} />
           <InfoRow label="Champion readiness" value={ready === null ? 'Checking' : ready ? 'Ready' : 'Unavailable'} />
