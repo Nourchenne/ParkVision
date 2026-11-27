@@ -75,7 +75,7 @@ jobs:
       - name: Build backend image
         run: docker build -t parkvision-backend:ci -f Dockerfile.backend .
       - name: Scan image for vulnerabilities (Trivy)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: parkvision-backend:ci
           format: table
