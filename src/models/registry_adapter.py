@@ -5,7 +5,7 @@ import json
 import mlflow.pyfunc
 
 
-class ParkVisionDetector(mlflow.pyfunc.PythonModel):
+class ParkVisionDetector(mlflow.pyfunc.PythonModel):  # type: ignore[name-defined]
     def __init__(self, confidence, nms_iou, image_size):
         self.confidence = confidence
         self.nms_iou = nms_iou
