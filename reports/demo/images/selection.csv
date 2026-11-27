@@ -1,0 +1,9 @@
+image,date,heure,scene,places,libres_annotees,occupees_annotees,libres_predites,occupees_predites
+2012-09-14_09_31_12_jpg.rf.e373f1b3a3d68d514aa1dbcba595b031.jpg,2012-09-14,09:31:12,"Grand parking (100 places) presque plein, plein soleil",100,7,93,,
+2012-09-14_13_01_21_jpg.rf.5b76f9aae419e80a56050cec2c78b089.jpg,2012-09-14,13:01:21,Même parking à occupation moyenne en milieu de journée,100,59,41,,
+2012-09-14_13_16_21_jpg.rf.8de8e6290c7b7cd7205b8f4fa80d9434.jpg,2012-09-14,13:16:21,"Lumière très forte : image surexposée, voitures délavées",100,61,39,,
+2012-09-14_18_06_32_jpg.rf.cea8ff208f7587aa369f00cdc16d7562.jpg,2012-09-14,18:06:32,"Fin de journée, lumière faible",100,43,57,,
+2012-10-13_06_58_36_jpg.rf.a986fd93eef5bda9955deaf9bcb8e22c.jpg,2012-10-13,06:58:36,Grand parking quasi vide au petit matin,100,100,0,,
+2013-03-15_12_00_07_jpg.rf.b70e86cfe1d83aa586f04f34de772d59.jpg,2013-03-15,12:00:07,Parking de 40 places presque plein (autre caméra),40,7,33,,
+2013-04-13_13_30_08_jpg.rf.2650c56a676509fe62dbe73b889cf64b.jpg,2013-04-13,13:30:08,"Parking de 40 places peu occupé, temps couvert",40,23,17,,
+2013-03-15_18_30_14_jpg.rf.b250364727b8f9197f9f2559dca632a3.jpg,2013-03-15,18:30:14,"Crépuscule, lampadaires allumés, parking de 40 places",40,12,28,,
