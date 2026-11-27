@@ -75,7 +75,7 @@ export function ImagePage() {
           {detections.length > 0 ? <table className="detections-table">
             <thead><tr><th>Class</th><th>Confidence</th><th>Box (x1, y1, x2, y2)</th></tr></thead>
             <tbody>{detections.map((detection, index) => <tr key={index}>
-              <td><span className={`tag ${detection.class_name === 'empty' ? 'tag-empty' : 'tag-occupied'}`}>{detection.class_name}</span></td>
+              <td><span className={`tag ${detection.class_name === 'space-empty' ? 'tag-empty' : 'tag-occupied'}`}>{detection.class_name}</span></td>
               <td>{(detection.confidence * 100).toFixed(1)}%</td>
               <td>{detection.bbox.map((value) => value.toFixed(0)).join(', ')}</td>
             </tr>)}</tbody>
