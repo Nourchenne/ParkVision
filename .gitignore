@@ -20,3 +20,8 @@ reports/experience_c/validation/quality_gate_local.json
 
 
 parking-test.mp4
+
+# Coverage output
+.coverage
+coverage.xml
+htmlcov/
