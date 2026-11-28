@@ -12,6 +12,7 @@ import cv2
 
 from src.api.config import Settings
 from src.api.model_service import ModelService
+from src.api.monitoring import ROUTE_VIDEO
 from src.api.schemas import FrameResult, Prediction
 
 
@@ -178,7 +179,16 @@ def analyze_video(
             try:
                 if not cv2.imwrite(str(frame_path), frame):
                     raise VideoProcessingError("frame_encode_failed", "Video frame could not be encoded")
-                prediction = model_service.predict(frame_path)
+                monitor = getattr(model_service, "monitor", None)
+                try:
+                    prediction = model_service.predict(frame_path)
+                except Exception:
+                    if monitor is not None:
+                        version = getattr(getattr(model_service, "info", None), "version", None)
+                        monitor.record_error(ROUTE_VIDEO, version)
+                    raise
+                if monitor is not None:
+                    monitor.record(ROUTE_VIDEO, prediction)
             finally:
                 frame_path.unlink(missing_ok=True)
             annotated = annotate_frame(frame, prediction, timestamp)
