@@ -161,7 +161,7 @@ git clone https://github.com/Nourchenne/ParkVision.git
 cd ParkVision
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements-training.txt "dvc[s3]"
+pip install -r requirements-training.txt
 dvc remote modify dagshub --local access_key_id VOTRE_JETON_DAGSHUB
 dvc remote modify dagshub --local secret_access_key VOTRE_JETON_DAGSHUB
 dvc pull -r dagshub

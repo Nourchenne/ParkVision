@@ -18,6 +18,7 @@ from PIL import Image
 
 from src.api import model_cache
 from src.api.config import Settings
+from src.api.monitoring import PredictionMonitor
 from src.api.schemas import Counts, Detection, ModelSummary, Prediction
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ class ModelService:
         self.model = model
         self.info = info
         self._predict_lock = threading.Lock()
+        self.monitor: PredictionMonitor | None = None  # set by create_app when monitoring is on
 
     def predict(self, image_path: Path) -> Prediction:
         start = time.perf_counter()

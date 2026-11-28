@@ -1,0 +1,17 @@
+== Demo PKLot (dans le domaine) ==
+requêtes : 37   erreurs : 0 (0.0%)
+latence : médiane 79.5 ms, p95 82.7 ms
+confiance moyenne : 0.939
+détections par requête (moyenne) : 40.7
+part de requêtes sans détection : 0.0%
+aucune alerte sur 18 fenêtres de 20 prédictions.
+
+== Camera de surveillance (hors domaine) ==
+requêtes : 317   erreurs : 0 (0.0%)
+latence : médiane 75.3 ms, p95 93.1 ms
+confiance moyenne : 0.358
+détections par requête (moyenne) : 0.0
+part de requêtes sans détection : 97.2%
+ALERTE (resultats_vides) dès la prédiction n°20 ; 298 positions sur 298 en alerte.
+
+courbe -> reports\monitoring\comparaison.png

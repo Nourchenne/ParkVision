@@ -225,3 +225,72 @@ def test_orphan_cleanup_only_removes_old_marked_directory(tmp_path):
         assert unknown.exists()
     finally:
         manager.shutdown()
+
+
+def test_cancel_leaves_cleanup_to_the_running_worker(tmp_path):
+    """The worker still holds the source open: deleting it during cancel failed on Windows."""
+    import threading
+
+    release = threading.Event()
+    started = threading.Event()
+
+    def holding(*args, **kwargs):
+        started.set()
+        cancel = args[3]
+        assert cancel.wait(2), "cancellation was not delivered"
+        assert release.wait(2), "test did not release the worker"
+        raise VideoProcessingError("cancelled", "Analysis was cancelled")
+
+    manager = VideoSessionManager(object(), settings(tmp_path), analyzer=holding,
+                                  storage_root=tmp_path / "store")
+    try:
+        session_id, path = allocate(manager)
+        assert started.wait(2)
+        assert manager.cancel(session_id).status == "cancelled"
+        assert path.exists()  # not deleted under the worker's feet
+        release.set()
+        for _ in range(400):
+            if not path.exists():
+                break
+            time.sleep(0.005)
+        assert not path.exists()
+    finally:
+        release.set()
+        manager.shutdown()
+
+
+def test_cancel_without_worker_deletes_immediately(tmp_path):
+    manager = VideoSessionManager(object(), settings(tmp_path), analyzer=successful_analyzer,
+                                  storage_root=tmp_path / "store")
+    try:
+        snapshot, path = manager.allocate_upload()
+        path.write_bytes(b"video")
+        assert manager.cancel(snapshot.id).status == "cancelled"
+        assert not path.exists()
+    finally:
+        manager.shutdown()
+
+
+def test_failed_deletion_is_deferred_and_retried_on_expiry(tmp_path, monkeypatch):
+    import src.api.video_sessions as sessions
+
+    clock = {"now": datetime.now(timezone.utc)}
+    manager = VideoSessionManager(object(), settings(tmp_path), analyzer=successful_analyzer,
+                                  storage_root=tmp_path / "store", now=lambda: clock["now"])
+    try:
+        session_id, path = allocate(manager)
+        wait_terminal(manager, session_id)
+        real_rmtree = sessions.shutil.rmtree
+
+        def locked(_path, *args, **kwargs):
+            raise PermissionError("file is in use")
+
+        monkeypatch.setattr(sessions.shutil, "rmtree", locked)
+        manager.cancel(session_id)  # used to raise PermissionError, hence HTTP 500
+        assert path.exists() and manager._sessions[session_id].pending_cleanup
+        monkeypatch.setattr(sessions.shutil, "rmtree", real_rmtree)
+        clock["now"] += timedelta(seconds=manager.settings.video_session_ttl_seconds + 5)
+        assert manager.expire() == 1
+        assert not path.exists()
+    finally:
+        manager.shutdown()

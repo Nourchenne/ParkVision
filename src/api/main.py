@@ -19,6 +19,7 @@ from starlette.responses import JSONResponse, Response
 
 from src.api.config import Settings, get_settings
 from src.api.model_service import CLASS_NAMES, ModelService, load_champion
+from src.api.monitoring import ROUTE_PREDICT, ROUTE_VISUALIZE, PredictionMonitor
 from src.api.schemas import Prediction
 from src.api.video_routes import create_video_router, local_http_allowed
 from src.api.video_sessions import VideoSessionManager
@@ -100,6 +101,11 @@ def create_app(settings: Settings | None = None, loader=load_champion,
                local_check=local_http_allowed) -> FastAPI:
     settings = settings or get_settings()
     logging.basicConfig(level=settings.log_level.upper())
+    monitor = PredictionMonitor.from_settings(settings)
+
+    def attach_monitor(service):
+        service.monitor = monitor
+        return service
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -107,7 +113,7 @@ def create_app(settings: Settings | None = None, loader=load_champion,
         app.state.video_manager = None
         cleanup_task = None
         try:
-            app.state.model_service = await run_in_threadpool(loader, settings)
+            app.state.model_service = attach_monitor(await run_in_threadpool(loader, settings))
             youtube_source = youtube_source_factory(settings) if youtube_source_factory else None
             app.state.video_manager = video_manager_factory(
                 app.state.model_service, settings, youtube_source=youtube_source)
@@ -200,10 +206,15 @@ def create_app(settings: Settings | None = None, loader=load_champion,
         try:
             path = await _receive_validated_image(file, settings)
             try:
-                return await run_in_threadpool(service.predict, path)
+                prediction = await run_in_threadpool(service.predict, path)
             except Exception:  # noqa: BLE001 - sanitize all model failures
                 logger.error("Model inference failed")
+                if monitor is not None:
+                    monitor.record_error(ROUTE_PREDICT, service.info.version)
                 raise error(500, "inference_failed", "Model inference failed") from None
+            if monitor is not None:
+                monitor.record(ROUTE_PREDICT, prediction)
+            return prediction
         finally:
             await file.close()
             if path is not None:
@@ -221,7 +232,11 @@ def create_app(settings: Settings | None = None, loader=load_champion,
                 prediction = await run_in_threadpool(service.predict, path)
             except Exception:  # noqa: BLE001 - sanitize all model failures
                 logger.error("Model inference failed")
+                if monitor is not None:
+                    monitor.record_error(ROUTE_VISUALIZE, service.info.version)
                 raise error(500, "inference_failed", "Model inference failed") from None
+            if monitor is not None:
+                monitor.record(ROUTE_VISUALIZE, prediction)
             annotated = await run_in_threadpool(_draw_detections, path, prediction)
             media_type = "image/jpeg" if path.suffix == ".jpg" else "image/png"
             return Response(content=annotated, media_type=media_type)
@@ -262,7 +277,7 @@ def create_app(settings: Settings | None = None, loader=load_champion,
                 logger.error("Model reload failed (%s)", type(exc).__name__)
                 raise error(503, "model_unavailable", "Model is unavailable")
             reload_state.failures = 0
-            app.state.model_service = service
+            app.state.model_service = attach_monitor(service)
             manager = app.state.video_manager
             if manager is not None and hasattr(manager, "set_model_service"):
                 manager.set_model_service(service)
