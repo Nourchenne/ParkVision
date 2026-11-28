@@ -1,5 +1,6 @@
 """Single-process bounded video sessions, owned storage, and file leases."""
 
+import logging
 import shutil
 import tempfile
 import threading
@@ -16,6 +17,8 @@ from src.api.config import Settings
 from src.api.model_service import ModelService
 from src.api.schemas import FrameResult, SessionError, VideoSessionSnapshot
 from src.api.video_service import VideoMetadata, VideoProcessingError, analyze_video
+
+logger = logging.getLogger(__name__)
 
 ACTIVE = {"queued", "acquiring", "processing"}
 TERMINAL = {"completed", "failed", "cancelled"}
@@ -50,6 +53,7 @@ class _Session:
     cancel_event: threading.Event = field(default_factory=threading.Event)
     leases: int = 0
     pending_cleanup: bool = False
+    worker_active: bool = False
     playback_time: float = 0.0
     playback_playing: bool = False
     playback_ended: bool = False
@@ -203,6 +207,7 @@ class VideoSessionManager:
         if self.youtube_source is None:
             raise SessionConflict("YouTube acquisition is unavailable")
         record = self._reserve("youtube", video_id, canonical_url)
+        record.worker_active = True
         self._executor.submit(self._run, record.id)
         return self._snapshot(record)
 
@@ -213,6 +218,7 @@ class VideoSessionManager:
                 raise SessionConflict("upload session cannot be started")
             record.metadata = metadata
             self._touch(record)
+            record.worker_active = True
             self._executor.submit(self._run, record.id)
             return self._snapshot(record)
 
@@ -324,6 +330,7 @@ class VideoSessionManager:
                     self._touch(record)
         finally:
             with self._lock:
+                record.worker_active = False
                 if record.source_type == "youtube" or record.status in {"failed", "cancelled"}:
                     self._schedule_cleanup(record)
                 self._reserved_bytes = max(0, self._reserved_bytes - record.reserved_bytes)
@@ -359,7 +366,10 @@ class VideoSessionManager:
                     record.reserved_bytes = 0
                 record.status = "cancelled"
                 self._touch(record)
-            self._schedule_cleanup(record)
+            # A running worker still holds the source open (OpenCV, yt-dlp). Deleting it now
+            # fails on Windows, so the worker removes the directory itself when it stops.
+            if not record.worker_active:
+                self._schedule_cleanup(record)
             return self._snapshot(record)
 
     @contextmanager
@@ -391,7 +401,13 @@ class VideoSessionManager:
 
     def _delete_directory(self, record: _Session):
         if record.directory.exists() and self._owned_directory(record.directory):
-            shutil.rmtree(record.directory)
+            try:
+                shutil.rmtree(record.directory)
+            except OSError as exc:
+                # A file may still be open (Windows refuses to delete it). Keep the cleanup
+                # pending: expiry retries it, and startup removes orphans.
+                logger.warning("video_cleanup_deferred session=%s exc=%s", record.id, type(exc).__name__)
+                return
         record.pending_cleanup = False
 
     def expire(self) -> int:
