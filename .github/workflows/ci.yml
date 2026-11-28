@@ -22,7 +22,7 @@ jobs:
       - name: Check Python syntax
         run: python -m compileall -q src tests
       - name: Lint quality gate, registry, importer, and tests
-        run: ruff check --target-version py310 src/api src/analysis/analyze_errors.py src/analysis/validate_model.py src/analysis/validation_contract.py src/models/registry.py src/models/registry_policy.py src/models/registry_adapter.py src/models/registry_lock.py src/models/export_onnx.py src/utils/transfer_run.py tests/
+        run: ruff check --target-version py310 src/api src/data/cluster_cameras.py src/data/prepare_camera_split.py src/analysis/analyze_errors.py src/analysis/validate_model.py src/analysis/validation_contract.py src/models/registry.py src/models/registry_policy.py src/models/registry_adapter.py src/models/registry_lock.py src/models/export_onnx.py src/utils/transfer_run.py tests/
       - name: Type-check quality gate, registry, importer, and API
         run: python -m mypy --ignore-missing-imports --explicit-package-bases src/api src/analysis/analyze_errors.py src/analysis/validate_model.py src/analysis/validation_contract.py src/models/registry.py src/models/registry_policy.py src/models/registry_adapter.py src/models/registry_lock.py src/models/export_onnx.py src/utils/transfer_run.py
       - name: Validate quality configuration schema
