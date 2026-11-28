@@ -41,6 +41,9 @@ class Settings:
     model_reload_enabled: bool = False
     model_reload_min_interval_seconds: int = 60
     model_reload_max_failures: int = 3
+    monitoring_enabled: bool = False
+    monitoring_log: Path | None = None
+    monitoring_max_bytes: int = 5 * 1024 * 1024
 
 
 def _positive_int(name: str, default: int) -> int:
@@ -108,6 +111,12 @@ def get_settings() -> Settings:
     cache = os.getenv("PARKVISION_MODEL_CACHE_DIR")
     cache_dir = (Path(cache).expanduser().resolve() if cache and cache.strip()
                  else Path.home() / ".parkvision" / "model-cache")
+    monitoring_max_bytes = _positive_int("PARKVISION_MONITORING_MAX_BYTES", 5 * 1024 * 1024)
+    if monitoring_max_bytes < 1024:
+        raise ValueError("PARKVISION_MONITORING_MAX_BYTES must be at least 1024")
+    monitoring_log = os.getenv("PARKVISION_MONITORING_LOG")
+    monitoring_path = (Path(monitoring_log).expanduser().resolve() if monitoring_log and monitoring_log.strip()
+                       else Path.home() / ".parkvision" / "monitoring" / "predictions.jsonl")
     return Settings(
         tracking_uri=os.getenv("MLFLOW_TRACKING_URI", "https://dagshub.com/Nourchenne/ParkVision.mlflow"),
         model_name=os.getenv("PARKVISION_MODEL_NAME", "ParkVision-Detector"),
@@ -144,4 +153,7 @@ def get_settings() -> Settings:
             "PARKVISION_MODEL_RELOAD_MIN_INTERVAL_SECONDS", 60),
         model_reload_max_failures=_positive_int(
             "PARKVISION_MODEL_RELOAD_MAX_FAILURES", 3),
+        monitoring_enabled=_strict_bool("PARKVISION_MONITORING_ENABLED", False),
+        monitoring_log=monitoring_path,
+        monitoring_max_bytes=monitoring_max_bytes,
     )
