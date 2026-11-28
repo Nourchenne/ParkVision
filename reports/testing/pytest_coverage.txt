@@ -1,0 +1,43 @@
+................................................s....................... [ 32%]
+.............................................. [ 52%]
+.................................................. [ 74%]
+.........................................................                [100%]
+============================== warnings summary ===============================
+tests/test_registry.py::ModelPackagingTests::test_packaged_adapter_loads_and_predicts
+  C:\Users\haoue\ParkVision\.venv\Lib\site-packages\mlflow\pyfunc\utils\data_validation.py:187: UserWarning: Add type hints to the `predict` method to enable data validation and automatic signature inference during model logging. Check https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel for more details.
+    color_warning(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.12.10-final-0 _______________
+
+Name                                  Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------
+orchestration\parkvision_flow.py         21      1    95%   44
+src\analysis\analyze_errors.py          180     88    51%   47, 135-139, 160-161, 166-184, 188-197, 215-298, 302
+src\analysis\validate_model.py          156     50    68%   30, 33-34, 40, 47, 53, 73, 87, 91-93, 95, 101, 104, 126, 129, 149, 155, 159, 165, 170, 173, 180, 194, 200, 233-296, 300
+src\analysis\validation_contract.py      63     10    84%   29, 31, 36, 39, 47, 50, 54, 57, 75, 78
+src\api\config.py                        94      8    91%   49-50, 59-60, 79-80, 82, 107
+src\api\main.py                         210      8    96%   63, 66, 118, 154-155, 222-224
+src\api\model_cache.py                  275     58    79%   103, 116, 144, 158, 161-169, 204-205, 238, 244, 248-249, 258-259, 261, 268-269, 276, 280, 285, 288, 314-315, 323-324, 327, 334, 337, 358, 363-364, 388-412, 416
+src\api\model_service.py                174     11    94%   74, 83-84, 86, 91, 111, 134, 147, 176, 204, 215
+src\api\smoke_test.py                    18     18     0%   3-30
+src\api\video_routes.py                 230     53    77%   37-38, 43, 58, 69, 78-79, 105, 111, 113, 121-126, 128, 139, 166-178, 184-185, 192-193, 201-202, 208-209, 211, 220-221, 224-226, 236, 253-254, 263-264, 281-282, 285
+src\api\video_service.py                152     20    87%   57, 59, 65, 68, 71, 73, 80, 135-136, 157, 167-169, 172, 180, 187, 192, 194-196
+src\api\video_sessions.py               317     27    91%   68, 111-112, 118, 133-135, 172, 203-207, 213, 232, 235, 263, 267, 281, 286-287, 289-294, 297, 370, 382
+src\api\youtube_source.py               155     28    82%   24, 27, 30, 41, 45-46, 79, 85-86, 92, 96-97, 104, 109-110, 121, 133, 136, 145, 150-151, 165, 179, 193, 202, 204, 206-207
+src\models\export_onnx.py                60      8    87%   16-17, 30-31, 54-57, 95
+src\models\registry.py                  439     70    84%   75, 81, 84, 87, 110, 112, 119, 133, 136, 147, 150, 155, 163, 168, 170, 172, 178, 183-184, 214, 245-271, 283, 285, 311, 320, 324, 327, 330, 384, 402, 414, 463, 478-479, 487, 511, 523, 542-545, 593-600, 614, 633, 636-639, 652-657
+src\models\registry_adapter.py           28      3    89%   21, 27, 37
+src\models\registry_lock.py              35      9    74%   12, 15, 29-31, 33-36, 44
+src\models\registry_policy.py            94     25    73%   17, 24, 27, 29, 31, 36, 38, 40-49, 62, 67, 73, 77, 91, 103, 111, 116-117
+src\models\train.py                     182    104    43%   22, 34, 40, 42, 51, 55, 61, 63, 93, 105-229, 233
+src\utils\transfer_run.py               292     29    90%   61, 65, 67, 71, 74, 96, 102, 118, 124, 128, 146, 148, 157, 168, 197, 214, 231, 255, 266, 284, 336, 351, 363, 369, 410, 416, 421-422, 426
+-------------------------------------------------------------------
+TOTAL                                  3231    628    81%
+
+2 files skipped due to complete coverage.
+Coverage XML written to file coverage.xml
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_model_cache.py:254: creating symlinks requires elevated privileges on Windows
+224 passed, 1 skipped, 1 warning, 48 subtests passed in 45.24s

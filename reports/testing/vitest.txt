@@ -1,0 +1,26 @@
+
+ RUN  v5.1.2 C:/Users/haoue/ParkVision/frontend
+
+ ✓ src/services/api.test.ts > typed API client > passes the backend capacity code through for the session UI 52ms
+ ✓ src/services/api.test.ts > typed API client > retrieves all paginated frames for a restored session 4ms
+ ✓ src/services/api.test.ts > typed API client > sends the playback clock and pause state to the video session 2ms
+ ✓ src/hooks/useMonitoring.test.tsx > session restoration > keeps a saved ID while the API is offline without opening a WebSocket 95ms
+ ✓ src/components/VideoPlayer.test.tsx > MP4 overlay sample selection > uses the newest analyzed sample at or before playback time 2ms
+ ✓ src/components/VideoPlayer.test.tsx > MP4 overlay sample selection > does not draw a stale or future sample 0ms
+ ✓ src/components/VideoPlayer.test.tsx > reports MP4 play, pause, and end to the analysis session 102ms
+ ✓ src/hooks/useMonitoring.test.tsx > session restoration > reads a saved session without creating a new analysis and closes its socket on unmount 71ms
+ ✓ src/hooks/useMonitoring.test.tsx > session restoration > starts only once and cancels a late response after reset 68ms
+ ✓ src/pages/ModelPage.test.tsx > ModelPage > shows the exact champion version and run when the model is loaded 105ms
+ ✓ src/pages/ModelPage.test.tsx > ModelPage > reports metadata as unavailable when the API is offline 16ms
+ ✓ src/pages/ModelPage.test.tsx > ModelPage > shows a loading state while the first health check is pending 11ms
+ ✓ src/pages/ImagePage.test.tsx > ImagePage > starts empty with the analyze button disabled 116ms
+ ✓ src/pages/ImagePage.test.tsx > ImagePage > previews the chosen file and enables the analyze button 35ms
+ ✓ src/pages/ImagePage.test.tsx > ImagePage > shows counts, latency and detections after a successful analysis 64ms
+ ✓ src/pages/ImagePage.test.tsx > ImagePage > shows the API error message when the analysis fails 43ms
+ ✓ src/pages/ImagePage.test.tsx > ImagePage > falls back to a generic message for unexpected failures 41ms
+
+ Test Files  5 passed (5)
+      Tests  17 passed (17)
+   Start at  11:55:14
+   Duration  2.20s (environment 66%, import 20%, tests 11%, transform 2%, worker 1%)
+
